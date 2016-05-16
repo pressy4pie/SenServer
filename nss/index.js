@@ -1,8 +1,11 @@
 var mqtt = require('mqtt');
-var client = mqtt.connect("ws://localhost:3002", {
-});
+const cloud_mqtt_server = "10.0.0.134:3002"
+const local_mqtt_server = "localhost:3002"
+//if (internet?){
+var client = mqtt.connect("ws:" + cloud_mqtt_server, {});
+//else var client = var client = mqtt.connect("ws:" + local_mqtt_server, {});
 
-client.subscribe("TEST_SERIAL_NUMBER");
+client.subscribe("SERIAL NUMBER");
 
 function gets(topic, payload){
   console.log([topic, payload].join(": "))
@@ -12,4 +15,3 @@ function gets(topic, payload){
     console.log('YOU SENT THE THING!!!!11!!1!!!');
   }
 }
-client.on("message", gets);
