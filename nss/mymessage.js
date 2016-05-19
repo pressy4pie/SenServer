@@ -159,3 +159,6 @@ const   P_LONG32=4;
 const   P_ULONG32=5; 
 const   P_CUSTOM=6; 
 const   P_FLOAT32=7;   
+
+const BROADCAST_ADDRESS = 255;
+const NODE_SENSOR_ID = 255;

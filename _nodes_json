@@ -1,0 +1,19 @@
+
+{
+    "_id": "2",
+    "version": "v1.1-1-g129347c",
+    "node_name": "EKG-MOTORCONTROLLER",
+    "lib_version": "PRODUCTION",
+    "battery_level": "0",
+    "last_message": 1463670550459
+}
+
+{
+    "_id": "3",
+    "version": "v1.1-1-g129347c",
+    "node_name": "EKG-SMARTSWITCH",
+    "lib_version": "PRODUCTION",
+    "battery_level": "0",
+    "last_message": 1463670550459
+}
+
