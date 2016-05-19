@@ -1,9 +1,0 @@
-{
-    "_id": 123
-    "node_id": "2",
-    "sensor_id":1,
-    "sensor_name":"up",
-    "sensor_subtype":"cover"
-    "value" : 0
-}
-_nodeid, sensor_id, sensor_name, sensor_subtype)

@@ -86,31 +86,37 @@ function save_timestamp(_nodeid){
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
   nodetotrack['sensors'][sensor_id] = {'_id':sensor_id, 'name': sensor_name, "sensor_type":sensor_subtype}
+  save_timestamp(_nodeid);
 }
 
 // Save the sensor state to teh db
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   nodetotrack['sensors'][sensor_id][sensor_type] = payload
+  save_timestamp(_nodeid);
 }
 
 // Save the node version in the db.
 function save_node_version(_nodeid,version){
   nodetotrack['version'] = version
+  save_timestamp(_nodeid);
 }
 
 // save library version in db.
 function save_node_lib_version(_nodeid,libversion){
   nodetotrack['libversion'] = libversion
+  save_timestamp(_nodeid);
 }
 
 // Save teh node battery level in db. 
 function save_node_battery_level(_nodeid,bat_level){
   nodetotrack['bat_level'] = bat_level
+  save_timestamp(_nodeid);
 }
 
 // save node name in db. 
 function save_node_name(_nodeid,node_name){
   nodetotrack['node_name'] = node_name
+  save_timestamp(_nodeid);
 }
 
 // Give a new node an ID. 
@@ -121,6 +127,7 @@ function sendNextAvailableSensorId() {
   ms_write_msg(msg);
   nodetotrack['id'] = id;
   nodetotrack['sensors'] = {}
+  save_timestamp(id);
 }
 
 // Init.
