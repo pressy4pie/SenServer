@@ -5,8 +5,6 @@ var MongoClient = require('mongodb').MongoClient;
 var vm = require('vm');
 var fs = require('fs');
 
-var nodetotrack = {};
-
 // Get the mymessage variables because i dont wan't it in this file. its a huge list. 
 var includeInThisContext = function(path) {
     var code = fs.readFileSync(path);
@@ -80,54 +78,72 @@ function ms_write_msg(_msg){
 
 // This is usually a callback from other save_xx whatever. 
 function save_timestamp(_nodeid){
-  nodetotrack['last_seen'] = Date.now
+  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'last_seen' : Date.now() } } );
+
 }
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  nodetotrack['sensors'][sensor_id] = {'_id':sensor_id, 'name': sensor_name, "sensor_type":sensor_subtype}
+  console.log('saving new sensor on node: ' + _nodeid);
+  var new_sensor = [ { 'sensor_id' : sensor_id, 'sensor_name': sensor_name, 'sensor_types' : sensor_subtype  } ];
+  nodeCollection.update( {'_id': _nodeid.toString()}, {$set : {'sensors': new_sensor }} );
   save_timestamp(_nodeid);
 }
 
-// Save the sensor state to teh db
+// Save the sensor state to teh db 
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
-  nodetotrack['sensors'][sensor_id][sensor_type] = payload
+  console.log( " new sensor value: " + payload); 
+  var new_variable = [ { 'variable_type' : sensor_type, 'current_value' : payload } ]; 
+  
+  // i cant figure this out. 
   save_timestamp(_nodeid);
 }
 
 // Save the node version in the db.
 function save_node_version(_nodeid,version){
-  nodetotrack['version'] = version
+  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'node_version' : version} } );
   save_timestamp(_nodeid);
 }
 
 // save library version in db.
 function save_node_lib_version(_nodeid,libversion){
-  nodetotrack['libversion'] = libversion
+  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'lib_version' : libversion} } );
   save_timestamp(_nodeid);
 }
 
 // Save teh node battery level in db. 
 function save_node_battery_level(_nodeid,bat_level){
-  nodetotrack['bat_level'] = bat_level
+  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'bat_level' : bat_level} } );
   save_timestamp(_nodeid);
 }
 
 // save node name in db. 
 function save_node_name(_nodeid,node_name){
-  nodetotrack['node_name'] = node_name
+  console.log('saveing node name')
+  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'node_name' : node_name} } );
   save_timestamp(_nodeid);
 }
 
 // Give a new node an ID. 
 function sendNextAvailableSensorId() {
-  //TODO build the next id pragmatically..
-  id = "1";
-  var msg = ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, id);
+  //Start with 1 for good measure. 
+  nid = '1'; 
+  
+  //Build a blank node.
+  var empty_node = { '_id' : nid,
+                     'sensors' : null,
+                     'bat_level' : null,
+                     'node_name' : null,
+                     'node_version' : null,
+                     'lib_version' : null,
+                     'last_seen' : Date.now(), 
+                   };
+  nodeCollection.save(empty_node);
+  
+  // send the id to the node itself. 
+  var msg = ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
   ms_write_msg(msg);
-  nodetotrack['id'] = id;
-  nodetotrack['sensors'] = {}
-  save_timestamp(id);
+  save_timestamp(nid);
 }
 
 // Init.
