@@ -29,11 +29,10 @@
             // make a json of the json. 
             raw_msg = message.payloadString;
             var node = JSON.parse(raw_msg);
-            //console.log(JSON.stringify(node));
-            //alert(JSON.stringify(node))
+            //window.alert(raw_msg);
             //add it to our list. 
-            node_list["node"+node.id] = node    
-            //alert(JSON.stringify(node));       
+            node_list[node._id] = node;
+            //window.alert(JSON.stringify(node,null,8));     
         break;
            
         // placeholders.    
@@ -103,6 +102,27 @@
         client.send(message);
         alert(JSON.stringify(timers_list,null,8));
   }
+  
+    function up(){
+      var msg = {'node_id': 3, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 }
+        message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
+        message.destinationName = "/zc/test_serial/update_sensor_variable/";
+        client.send(message);
+  }
+  
+      function down(){
+      var msg = {'node_id': 3, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 30, 'payload': 1 }
+        message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
+        message.destinationName = "/zc/test_serial/update_sensor_variable/";
+        client.send(message);
+  }
+  
+      function stop(){
+      var msg = {'node_id': 3, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 }
+        message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
+        message.destinationName = "/zc/test_serial/update_sensor_variable/";
+        client.send(message);
+  }
 
 </script>
   </head>
@@ -112,6 +132,10 @@
         <button onclick=" get_nodes(); ">Get Nodes</button>
         <button onclick=" get_alarms(); ">Get Alarms</button>
         <button onclick=" get_timers(); ">Get Timers</button>
+        
+        <button onclick=" up(); ">up</button>
+        <button onclick=" down(); ">down</button>
+        <button onclick=" stop(); ">stop</button>
   </body>
 
 </html>

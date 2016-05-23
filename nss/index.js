@@ -5,6 +5,10 @@ var MongoClient = require('mongodb').MongoClient;
 var vm = require('vm');
 var fs = require('fs');
 
+// Something that should be got from our non existant configuration file. 
+var node_dead_milis = 900000; //15 minutes
+//var node_dead_milis = 90;
+
 // Get the mymessage variables because i dont wan't it in this file. its a huge list. 
 var includeInThisContext = function(path) {
     var code = fs.readFileSync(path);
@@ -29,9 +33,10 @@ MongoClient.connect(dburl, function(err, db) {
   console.log("Connected to DB.");
   db.createCollection('nodes', function(err, collection) { });
   db.createCollection('sensors', function(err, collection) { });
+  
+  // These are our two collections for mysensors messages. 
   nodeCollection = db.collection('nodes');
   sensorCollection = db.collection('sensors');
-
 });
 
 // Initialize the serial port. 
@@ -75,79 +80,138 @@ function ms_write_msg(_msg){
 }
 
 /* these obviously don't right work yet.*/
+function start_node_checker(){
+  var node_check_frequency = 10000; //ten seconds. In production this will be like 15 minutes.
+  var node_checker_id = setInterval(check_node_alive, node_check_frequency);
+}
+
+function check_node_alive(){
+  num_nodes = nodeCollection.count();
+  num_nodes.then(function(value){ 
+        for(var i=1; i <= parseInt(value); i++){
+        
+        thisNode = nodeCollection.find( { _id: parseInt(i) }).toArray();
+        thisNode.then(function( node_to_check ){
+
+          // Create a string to work with. 
+          node_to_check_str = JSON.stringify(node_to_check);
+          // Get rid of the brackets. 
+          node_to_check_str = node_to_check_str.replace(/[\[\]']+/g,'');
+          
+          // Convert it back. Thanks mongodb.
+          var node_json = JSON.parse(node_to_check_str);
+          
+          // If node hasnt been seen in the node_dead_milis 
+          if( (Date.now() - node_json.last_seen) > node_dead_milis && node_json.alive == true){
+            console.log('node: '  + node_json._id + " is declared dead."); 
+            nodeCollection.update( {'_id' : parseInt(node_json._id)}, {$set: {'alive': false}} );
+          }
+          });
+    }
+  });
+}
 
 // This is usually a callback from other save_xx whatever. 
 function save_timestamp(_nodeid){
-  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'last_seen' : Date.now() } } );
-
+  // Save the last seen time.
+  nodeCollection.update( {'_id': _nodeid}, { $set: {'last_seen' : Date.now() } } );
+  // Obviously if we just updated time, we are alive lol.
+  nodeCollection.update( {'_id': _nodeid}, { $set: {'alive' : true } } );
 }
+
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
   console.log('saving new sensor on node: ' + _nodeid);
-  var new_sensor = [ { 'sensor_id' : sensor_id, 'sensor_name': sensor_name, 'sensor_types' : sensor_subtype  } ];
-  nodeCollection.update( {'_id': _nodeid.toString()}, {$set : {'sensors': new_sensor }} );
+  
+  // Build the json thats going to be used for the document and save it.
+  newSensor = { '_id': _nodeid+ "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_type': sensor_subtype,'variables':{} };
+  sensorCollection.save(newSensor);
   save_timestamp(_nodeid);
 }
 
 // Save the sensor state to teh db 
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
-  console.log( " new sensor value: " + payload); 
-  var new_variable = [ { 'variable_type' : sensor_type, 'current_value' : payload } ]; 
-  
-  // i cant figure this out. 
+  // This will be our document to update as saved above.
+  thisSensor = sensorCollection.find( { _id: _nodeid + "-" + sensor_id} ).toArray();
+  // When it is populated by mongodb (not promise {<pending>})
+  thisSensor.then(function( sensor_to_publish ){
+    // change the array to a string, remove the brackets, and change it back to a json. 
+    var sensor_to_publish_str = JSON.stringify(sensor_to_publish);
+    sensor_to_publish_str = sensor_to_publish_str.substring(1, sensor_to_publish_str.length-1);
+    var sensor_to_publish_obj = JSON.parse(sensor_to_publish_str);
+    
+    // Save the new sensor variable and update it in db. 
+    sensor_to_publish_obj.variables[sensor_type] = payload
+    sensorCollection.update( { _id: _nodeid + "-" + sensor_id }, sensor_to_publish_obj );
+  }); 
+
+  // Save timestamp, and update the state in mqtt. 
   save_timestamp(_nodeid);
+  publish_nodes();
 }
 
 // Save the node version in the db.
 function save_node_version(_nodeid,version){
-  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'node_version' : version} } );
+  nodeCollection.update( {'_id': _nodeid}, { $set: {'node_version' : version} } );
   save_timestamp(_nodeid);
 }
 
 // save library version in db.
 function save_node_lib_version(_nodeid,libversion){
-  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'lib_version' : libversion} } );
+  nodeCollection.update( {'_id': _nodeid}, { $set: {'lib_version' : libversion} } );
   save_timestamp(_nodeid);
 }
 
 // Save teh node battery level in db. 
 function save_node_battery_level(_nodeid,bat_level){
-  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'bat_level' : bat_level} } );
+  nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_level' : parseInt(bat_level)} } );
   save_timestamp(_nodeid);
 }
 
 // save node name in db. 
 function save_node_name(_nodeid,node_name){
   console.log('saveing node name')
-  nodeCollection.update( {'_id': _nodeid.toString()}, { $set: {'node_name' : node_name} } );
+  nodeCollection.update( {'_id': _nodeid}, { $set: {'node_name' : node_name} } );
   save_timestamp(_nodeid);
 }
 
 // Give a new node an ID. 
 function sendNextAvailableSensorId() {
   //Start with 1 for good measure. 
-  nid = '1'; 
-  
-  //Build a blank node.
-  var empty_node = { '_id' : nid,
-                     'sensors' : null,
-                     'bat_level' : null,
-                     'node_name' : null,
-                     'node_version' : null,
-                     'lib_version' : null,
-                     'last_seen' : Date.now(), 
-                   };
-  nodeCollection.save(empty_node);
-  
-  // send the id to the node itself. 
-  var msg = ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
-  ms_write_msg(msg);
-  save_timestamp(nid);
+  num_nodes = nodeCollection.count();
+  num_nodes.then(function(value){ 
+    console.log(value);
+    
+      
+    nid =  (parseInt(value) + 1 ); 
+    console.log(nid);
+    
+    //Build a blank node.
+    var empty_node = { '_id' : nid,
+                      'bat_level' : null,
+                      'node_name' : null,
+                      'node_version' : null,
+                      'lib_version' : null,
+                      'last_seen' : Date.now(), 
+                      'alive' : 'true'
+                    };
+    nodeCollection.save(empty_node);
+    
+    // send the id to the node itself. 
+    var msg = ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
+    ms_write_msg(msg);
+    save_timestamp(nid);
+    
+    // Got an update, update in mqtt.
+    publish_nodes();
+    
+  } );
 }
 
 // Init.
 function publish_all(){
+  console.log('publishing all.');
   publish_nodes();
   publish_alarms();
   publish_timers();
@@ -155,7 +219,38 @@ function publish_all(){
 
 // publish our nodes. 
 function publish_nodes(){
-    mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(nodetotrack) );
+  
+    // Number of nodes
+    num_nodes = nodeCollection.count();
+    num_nodes.then(function(value){ 
+      // For every node, publish a json about it.     
+      for(var i=1; i <= parseInt(value); i++){
+        thisNode = nodeCollection.find( { _id: parseInt(i) }).toArray();
+        thisNode.then(function( node_to_publish ){
+          // Create a string to work with. 
+          node_to_publish_str = JSON.stringify(node_to_publish);
+          // Get rid of the brackets. 
+          node_to_publish_str = node_to_publish_str.replace(/[\[\]']+/g,'');
+          
+          // Convert it back. Thanks mongodb.
+          var node_json = JSON.parse(node_to_publish_str);
+          var node_id = node_json['_id'];
+         
+          
+          /* 
+          *
+          * ToDo add sensors to the node json before publish.
+          * 
+          */
+          //node_sensors = sensorCollection.find({'node_id': node_id}).toArray();
+          //console.log(node_sensors);
+          
+          // Do the publish. 
+          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_json) );
+          });
+    }
+  });
+    
 }
 
 // publish our alarms.
@@ -209,12 +304,12 @@ function packet_recieved(_data){
   // Split the raw data by semicolon.
   var packet = _data.toString().trim().split(";");
   
-  var nodeid = packet[0];
-  var childsensorid = packet[1];
-  var messagetype = packet[2];
-  var ack = packet[3];
-  var subtype = packet[4];
-  var payload = packet[5];
+  var nodeid = parseInt(packet[0]);
+  var childsensorid = parseInt(packet[1]);
+  var messagetype = parseInt(packet[2]);
+  var ack = parseInt(packet[3]);
+  var subtype = parseInt(packet[4]);
+  var payload = packet[5]; //This is a string most of the time..
   
   // Which type of message?
   switch (parseInt(messagetype)) {
@@ -369,9 +464,11 @@ function packet_recieved(_data){
 mqtt_client.subscribe('/zc/' + serial_number + "/#");
 console.log('subscribed to: ' + '/zc/' + serial_number);
 
+
 // Successful connection to mqtt. 
 mqtt_client.on('connect', () => {  
   console.log('Connected to mqtt.');
+  start_node_checker();
 })
 
 
@@ -398,19 +495,34 @@ mqtt_client.on('message', function (topic, message) {
     case '/zc/' + serial_number + "/":
       console.log('new connection');
       publish_all();
+      break;
+      
+    case '/zc/' + serial_number + "/test/":
+      check_node_alive();
+      break;
     
     // specific api parts.
     case '/zc/' + serial_number + '/get_nodes/':
       console.log('publishing nodes.');
       publish_nodes();
+      break;
+      
+    //update a variable.
+    case '/zc/' + serial_number + '/update_sensor_variable/':
+      msg_json = JSON.parse(message.toString());
+      msg = ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
+      ms_write_msg(msg);
+      break; 
       
     case '/zc' + serial_number + '/get_timers/':
-      console.log('publishing timers.');
-      publish_timers();
+      //console.log('publishing timers.');
+      //publish_timers();
+      break;
       
     case '/zc' + serial_number + '/get_alarms/':
-      console.log('publishing alarms.');
-      publish_alarms();
+      //console.log('publishing alarms.');
+      //publish_alarms();
+      break;
       
     // Other stuff.
     case '/zc/' + serial_number + '/debug/raw_ms_msg':
