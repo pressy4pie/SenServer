@@ -18,7 +18,7 @@ includeInThisContext(__dirname+"/mymessage.js");
 
 // Set some initial variables. 
 const cloud_mqtt_server = "10.0.0.134:3002";
-const local_mqtt_server = "localhost:3002";
+const local_mqtt_server = "localhost:3003";
 const serial_number = process.env.SERIALNUM;
 
 // These will need to be set pragmatically. 
@@ -55,8 +55,42 @@ if (net_connection){
   var mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
 }
 else {
+  // Start the local mqtt server. 
+  var http = require('http');
+  var mosca = require('mosca');
+  var conf = require('./app/config');
+  
+  var moscaSettings = {
+  port: conf.mqttPort,
+  http: { // for teh websockets
+      port: conf.httpPort,
+      bundle: true,
+      static: './frontend'
+    }
+  };
+  
+  var server = new mosca.Server(moscaSettings);   //here we start mosca
+  
+    server.on('ready', function() {
+    console.log("Server online");
+  });  //on init it fires up setup()
+  [
+    'clientConnected',
+    'clientDisconnecting',
+    'clientDisconnected',
+    'published',
+    'subscribed',
+    'unsubscribed',
+    'error'
+  ].forEach(function(event) {
+    server.on(event, function(){
+      console.log("" + event + " event.");
+    });
+  });
   var mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
 }
+
+    
 
 // Encode a mysensors message. 
 function ms_encode(destination, sensor, command, acknowledge, type, payload) {
@@ -235,13 +269,13 @@ function publish_nodes(){
           // Convert it back. Thanks mongodb.
           var node_json = JSON.parse(node_to_publish_str);
           var node_id = node_json['_id'];
-         
           
           /* 
           *
           * ToDo add sensors to the node json before publish.
           * 
           */
+          
           //node_sensors = sensorCollection.find({'node_id': node_id}).toArray();
           //console.log(node_sensors);
           
@@ -250,7 +284,6 @@ function publish_nodes(){
           });
     }
   });
-    
 }
 
 // publish our alarms.
