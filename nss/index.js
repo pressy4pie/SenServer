@@ -37,6 +37,10 @@ MongoClient.connect(dburl, function(err, db) {
   // These are our two collections for mysensors messages. 
   nodeCollection = db.collection('nodes');
   sensorCollection = db.collection('sensors');
+  
+  // This stuff doesn't work yet. 
+  alarmCollection = db.collection('alarms');
+  timerCollection = db.collection('timers');
 });
 
 // Initialize the serial port. 
@@ -143,6 +147,16 @@ function check_node_alive(){
           });
     }
   });
+}
+
+// Save a timer in the DB.
+function save_timer(){
+  
+}
+
+// Save an alarm in the DB.
+function save_alarm(){
+  
 }
 
 // This is usually a callback from other save_xx whatever. 
@@ -508,11 +522,10 @@ mqtt_client.on('connect', () => {
 // When the serial port gets data. 
 port.on('data', function (data) {
   // Print the serial message.
-  //console.log('SERIAL DATA: ' + data);
   if(data.match(/;/g).length == 5 ){ 
     // A valid mymessage
     // Publish the raw message to mqtt for fun.
-    //mqtt_client.publish('/zc/' + serial_number + '/debug/raw_ms_msg',data);
+    mqtt_client.publish('/zc/' + serial_number + '/debug/raw_ms_msg',data);
     packet_recieved(data);
   }
   else{
@@ -525,36 +538,49 @@ port.on('data', function (data) {
 mqtt_client.on('message', function (topic, message) {
   switch (topic){
     
+    // If its a plain subscription to the base level, publish all nodes,alarms,timers etc.
     case '/zc/' + serial_number + "/":
       console.log('new connection');
       publish_all();
       break;
-      
+   
+   // This is just a test that i use for stuff.    
     case '/zc/' + serial_number + "/test/":
       check_node_alive();
       break;
     
-    // specific api parts.
+    // Specific api parts.
     case '/zc/' + serial_number + '/get_nodes/':
       console.log('publishing nodes.');
       publish_nodes();
       break;
       
-    //update a variable.
+    // Update a variable.
     case '/zc/' + serial_number + '/update_sensor_variable/':
       msg_json = JSON.parse(message.toString());
       msg = ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
       ms_write_msg(msg);
       break; 
       
-    case '/zc' + serial_number + '/get_timers/':
-      //console.log('publishing timers.');
-      //publish_timers();
+    // Create a new timer. 
+    case '/zc/' + serial_number + '/create_timer/':
+      msg_json = JSON.parse(message.toString());
+      save_timer();
+      break;
+    
+    // Create an alarm. 
+    case '/zc/' + serial_number + '/create_alarm/':
+      msg_json = JSON.parse(message.toString());
+      save_alarm();
       break;
       
+    // Publish timers.
+    case '/zc' + serial_number + '/get_timers/':
+      publish_timers();
+      break;
+    // Publish alarms. 
     case '/zc' + serial_number + '/get_alarms/':
-      //console.log('publishing alarms.');
-      //publish_alarms();
+      publish_alarms();
       break;
       
     // Other stuff.

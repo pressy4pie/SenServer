@@ -25,7 +25,7 @@
       //console.log(message.destinationName, ' -- ', message.payloadString);
         switch(message.destinationName){
         case '/zc/' + "test_serial" + '/node/':
-            console.log("nodes published, fetching...");
+            console.log("new nodes published, fetching...");
             // make a json of the json. 
             raw_msg = message.payloadString;
             var node = JSON.parse(raw_msg);
@@ -37,7 +37,7 @@
            
         // placeholders.    
         case '/zc/' + "test_serial" + '/alarm/':
-            console.log("alarms published, fetching...");
+            console.log("new alarms published, fetching...");
             // make a json of the json. 
             raw_msg = message.payloadString;
             var alarm = JSON.parse(raw_msg);
@@ -47,7 +47,7 @@
         break;
         
         case '/zc/' + "test_serial" + '/timers/':
-            console.log("timers published, fetching..");
+            console.log("new timers published, fetching..");
             // make a json of the json. 
             raw_msg = message.payloadString;
             var alarm = JSON.parse(raw_msg);
@@ -77,48 +77,48 @@
   }
   
   function controller_connect(){
-        message = new Paho.MQTT.Message("");
+        message = new Paho.MQTT.Message("get");
         message.destinationName = "/zc/test_serial/";
         client.send(message);
   }
   
   function get_nodes(){
-        message = new Paho.MQTT.Message("");
+        message = new Paho.MQTT.Message("get");
         message.destinationName = "/zc/test_serial/get_nodes/";
         client.send(message);
         setTimeout(function(){alert(JSON.stringify(node_list,null,8))}, 100);
   }
   
   function get_alarms(){
-        message = new Paho.MQTT.Message("");
+        message = new Paho.MQTT.Message("get");
         message.destinationName = "/zc/test_serial/get_alarms/";
         client.send(message);
         alert(JSON.stringify(alarms_list,null,8));
   }
   
   function get_timers(){
-        message = new Paho.MQTT.Message("");
+        message = new Paho.MQTT.Message("get");
         message.destinationName = "/zc/test_serial/get_timers/";
         client.send(message);
         alert(JSON.stringify(timers_list,null,8));
   }
   
     function up(){
-      var msg = {'node_id': 3, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 }
+      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 }
         message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
         message.destinationName = "/zc/test_serial/update_sensor_variable/";
         client.send(message);
   }
   
       function down(){
-      var msg = {'node_id': 3, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 30, 'payload': 1 }
+      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 30, 'payload': 1 }
         message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
         message.destinationName = "/zc/test_serial/update_sensor_variable/";
         client.send(message);
   }
   
       function stop(){
-      var msg = {'node_id': 3, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 }
+      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 }
         message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
         message.destinationName = "/zc/test_serial/update_sensor_variable/";
         client.send(message);
