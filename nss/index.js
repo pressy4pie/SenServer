@@ -268,6 +268,7 @@ function publish_all(){
 
 // publish our nodes. 
 function publish_nodes(){
+  console.log('publishing nodes.');
   var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} );
   nodeCursor.each(function (err, doc) {
     if (err) {
@@ -282,7 +283,7 @@ function publish_nodes(){
           console.log(err);
         } else if (sdoc!= null){
           node_to_publish.sensors[sdoc['sensor_id']] = sdoc
-          console.log('published node.');
+          //console.log('published node.');
           mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
         }
       });
@@ -389,7 +390,6 @@ function packet_recieved(_data){
         
         // The sensors battery has been updated.                  
         case I_BATTERY_LEVEL:
-          console.log("NODE: " + nodeid + " BATTERY: " + payload.trim() + "\%");
           save_node_battery_level(nodeid,payload);
           break;
           
@@ -541,7 +541,6 @@ mqtt_client.on('message', function (topic, message) {
     
     // Specific api parts.
     case '/zc/' + serial_number + '/get_nodes/':
-      console.log('publishing nodes.');
       publish_nodes();
       break;
       
