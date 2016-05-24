@@ -242,7 +242,8 @@ function sendNextAvailableSensorId() {
                       'node_version' : null,
                       'lib_version' : null,
                       'last_seen' : Date.now(), 
-                      'alive' : 'true'
+                      'alive' : 'true',
+                      'sensors':{}
                     };
     nodeCollection.save(empty_node);
     
@@ -267,37 +268,26 @@ function publish_all(){
 
 // publish our nodes. 
 function publish_nodes(){
-  
-    // Number of nodes
-    num_nodes = nodeCollection.count();
-    num_nodes.then(function(value){ 
-      // For every node, publish a json about it.     
-      for(var i=1; i <= parseInt(value); i++){
-        thisNode = nodeCollection.find( { _id: parseInt(i) }).toArray();
-        thisNode.then(function( node_to_publish ){
-          // Create a string to work with. 
-          node_to_publish_str = JSON.stringify(node_to_publish);
-          // Get rid of the brackets. 
-          node_to_publish_str = node_to_publish_str.replace(/[\[\]']+/g,'');
-          
-          // Convert it back. Thanks mongodb.
-          var node_json = JSON.parse(node_to_publish_str);
-          var node_id = node_json['_id'];
-          
-          /* 
-          *
-          * ToDo add sensors to the node json before publish.
-          * 
-          */
-          
-          //node_sensors = sensorCollection.find({'node_id': node_id}).toArray();
-          //console.log(node_sensors);
-          
-          // Do the publish. 
-          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_json) );
-          });
-    }
-  });
+  var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} );
+  nodeCursor.each(function (err, doc) {
+    if (err) {
+      console.log(err);
+    } else if ( doc!= null) {
+      var node_to_publish = doc;
+      // Get sensors for this node. 
+      var sensor_cursor = sensorCollection.find( {node_id : node_to_publish['_id']} );
+      sensor_cursor.each(function ( serr, sdoc ){
+        //console.log( JSON.stringify(node_to_publish) );
+        if (serr){
+          console.log(err);
+        } else if (sdoc!= null){
+          node_to_publish.sensors[sdoc['sensor_id']] = sdoc
+          console.log('published node.');
+          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
+        }
+      });
+    }   
+  }); 
 }
 
 // publish our alarms.
