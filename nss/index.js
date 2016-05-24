@@ -2,12 +2,13 @@ var mqtt = require('mqtt');
 var serialport = require('serialport');
 var SerialPort = serialport.SerialPort;
 var MongoClient = require('mongodb').MongoClient;
+
+// This is because I didn't want the contents of mymessage.js in this file. 
 var vm = require('vm');
 var fs = require('fs');
 
 // Something that should be got from our non existant configuration file. 
-var node_dead_milis = 900000; //15 minutes
-//var node_dead_milis = 90;
+const node_dead_milis = 900000; //15 minutes
 
 // Get the mymessage variables because i dont wan't it in this file. its a huge list. 
 var includeInThisContext = function(path) {
@@ -22,7 +23,6 @@ const local_mqtt_server = "localhost:3003";
 const serial_number = process.env.SERIALNUM;
 
 // These will need to be set pragmatically. 
-const net_connection = true;
 var inclusion_mode = true;
 
 // Initialize db connection.
@@ -31,6 +31,8 @@ MongoClient.connect(dburl, function(err, db) {
   if(err)
     throw err;
   console.log("Connected to DB.");
+  
+  // The collections of documents we deal with. 
   db.createCollection('nodes', function(err, collection) { });
   db.createCollection('sensors', function(err, collection) { });
   
@@ -54,49 +56,23 @@ port.on('open', function () {
   console.log('Serial port opened.');
 });
 
+var net_connection = function( ){
+  // Do we have internet? 
+  // This obviously does not work yet. 
+  return true;
+}
+
 // Check for internet and open a mqtt websocket.
 if (net_connection){
+  // Connect to the EKG app server. Easy Peasy.
   var mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
 }
 else {
-  // Start the local mqtt server. 
-  var http = require('http');
-  var mosca = require('mosca');
-  var conf = require('./app/config');
-  
-  var moscaSettings = {
-  port: conf.mqttPort,
-  http: { // for teh websockets
-      port: conf.httpPort,
-      bundle: true,
-      static: './frontend'
-    }
-  };
-  
-  var server = new mosca.Server(moscaSettings);   //here we start mosca
-  
-    server.on('ready', function() {
-    console.log("Server online");
-  });  //on init it fires up setup()
-  [
-    'clientConnected',
-    'clientDisconnecting',
-    'clientDisconnected',
-    'published',
-    'subscribed',
-    'unsubscribed',
-    'error'
-  ].forEach(function(event) {
-    server.on(event, function(){
-      console.log("" + event + " event.");
-    });
-  });
+  // I would like nodejs to launch the mqtt broker right before connecting to it in this case.
   var mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
 }
 
-    
-
-// Encode a mysensors message. 
+// Encode a mysensors message returned as a string.
 function ms_encode(destination, sensor, command, acknowledge, type, payload) {
 	var msg = destination.toString(10) + ";" + sensor.toString(10) + ";" + command.toString(10) + ";" + acknowledge.toString(10) + ";" + type.toString(10) + ";";
 	if (command == 4) {
@@ -117,12 +93,26 @@ function ms_write_msg(_msg){
   port.write(_msg);
 }
 
-/* these obviously don't right work yet.*/
+function start_inclusion_mode(){
+  var inclusion_mode_duration = 60000; // one minute.
+  var inclusion_mode_process = setInterval(toggle_inclusion_mode, inclusion_mode_duration);
+}
+
+function toggle_inclusion_mode(){
+  if(inclusion_mode){
+    inclusion_mode = false;    
+  }
+  // I think this is the right syntax.
+  inclusion_mode_process.cancel();
+}
+
+// Start the background checker for node aliveness.
 function start_node_checker(){
   var node_check_frequency = 10000; //ten seconds. In production this will be like 15 minutes.
   var node_checker_id = setInterval(check_node_alive, node_check_frequency);
 }
 
+// Check if nodes are alive. Will probably rewrite this, not in a for loop.
 function check_node_alive(){
   num_nodes = nodeCollection.count();
   num_nodes.then(function(value){ 
@@ -140,6 +130,7 @@ function check_node_alive(){
           var node_json = JSON.parse(node_to_check_str);
           
           // If node hasnt been seen in the node_dead_milis 
+          // I think this is the only math I've done in this entire program. 
           if( (Date.now() - node_json.last_seen) > node_dead_milis && node_json.alive == true){
             console.log('node: '  + node_json._id + " is declared dead."); 
             nodeCollection.update( {'_id' : parseInt(node_json._id)}, {$set: {'alive': false}} );
@@ -151,12 +142,12 @@ function check_node_alive(){
 
 // Save a timer in the DB.
 function save_timer(){
-  
+  // NO
 }
 
 // Save an alarm in the DB.
 function save_alarm(){
-  
+  // NUOPE
 }
 
 // This is usually a callback from other save_xx whatever. 
@@ -170,7 +161,7 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  console.log('saving new sensor on node: ' + _nodeid);
+  console.log('saving new sensor on node: ' , _nodeid);
   
   // Build the json thats going to be used for the document and save it.
   newSensor = { '_id': _nodeid+ "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_type': sensor_subtype,'variables':{} };
@@ -258,7 +249,7 @@ function sendNextAvailableSensorId() {
   } );
 }
 
-// Init.
+// This gets called when a new app connects to mqtt..
 function publish_all(){
   console.log('publishing all.');
   publish_nodes();
@@ -269,6 +260,8 @@ function publish_all(){
 // publish our nodes. 
 function publish_nodes(){
   console.log('publishing nodes.');
+  
+  // Get cursor for nodes with id greater than zero. 
   var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} );
   nodeCursor.each(function (err, doc) {
     if (err) {
@@ -303,25 +296,6 @@ function publish_timers(){
   mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify('{test:"test"}') );
 }
 
-// Get a json of a particular node. 
-function get_node_details(node_id){
-  // Build a json of the details for the node 
-  var node_json = nodetotrack[node_id]
-  return JSON.stringify(node_json);
-}
-
-// get a json list of alarms. 
-function get_alarm_list(){
-  var alarm_list = {}
-  mqtt_client.publish('/zc/' + serial_number + '/api/alarm/alarm_list/', JSON.stringify(alarm_list));
-}
-
-// get a json list of timers.
-function get_timer_list(){
-  var timer_list = {}
-  mqtt_client.publish('/zc/' + serial_number + '/api/timer/timer_list/', JSON.stringify(timer_list));
-}
-
 // Send a config to the sensors. (Imperial or Metric.)
 function ms_sendconfig(_nodeid){
   // Imperial for now.
@@ -336,12 +310,28 @@ function ms_sendconfig(_nodeid){
   ms_write_msg(message);
 }
 
+function ms_sendtime(_nodeid){
+  // I don't think this is supposed to be in miliseconds.
+  var payload = Date.now();
+  var sensor = NODE_SENSOR_ID;
+  var destination = _nodeid;
+  var ack = 0;
+  var messagetype = C_INTERNAL;
+  var subtype = I_TIME;
+  
+  // Build the message and send it.
+  var message = ms_encode(destination,sensor,messagetype,ack,subtype,payload);
+  ms_write_msg(message);
+  
+}
+
 // Callback. Decide what do do with the mysensors packet. 
 // I call this the 'swich statement from hell'
 function packet_recieved(_data){
   // Split the raw data by semicolon.
   var packet = _data.toString().trim().split(";");
   
+  // Rip the packet apart by semicolon as noted above.
   var nodeid = parseInt(packet[0]);
   var childsensorid = parseInt(packet[1]);
   var messagetype = parseInt(packet[2]);
@@ -352,18 +342,16 @@ function packet_recieved(_data){
   // Which type of message?
   switch (parseInt(messagetype)) {
     case C_PRESENTATION:
-      // this is a bug, motor controllers broadcast as 0 at first for some reason. 
+      // this is a bug, motor controllers broadcast as 0 at first for some reason. Just ignore this..
       if (childsensorid == "0" || nodeid == "0") break;
       
       // presentation is on broadcast address.
       if (childsensorid == BROADCAST_ADDRESS){
         // The version of the sensor. 
         save_node_version(nodeid,payload.trim());
-        //console.log("NODE: " + nodeid + " VERSION: "  + payload.trim() );
       }
       else if (childsensorid != BROADCAST_ADDRESS){
         save_sensor(nodeid, childsensorid, payload,subtype);
-        //console.log("NODE: " + nodeid + " SENSOR: " + childsensorid + " NAME: " + payload.trim() );      
       }
       else {
         // uncaught presentation. Im not perfect ok.
@@ -374,17 +362,16 @@ function packet_recieved(_data){
     case C_SET:
       // this is a bug, motor controllers broadcast as 0 at first for some reason. 
       if (childsensorid == "0" || nodeid == "0") break;
-      
-      // Print the info.
-      //console.log("NODE: " + nodeid + " SENSOR: " + childsensorid + " TYPE: " + subtype + " PAYLOAD: " + payload.trim() );
       save_sensor_value(nodeid, childsensorid, subtype, payload);
       break;
 
     case C_REQ:
       console.log('C_REQ message');
+      // I think time messages might go in here.
       break;
       
     case C_INTERNAL:
+    // Catch that bug in motor controllers.
     if (childsensorid == "0" || nodeid == "0") break;
       switch(parseInt(subtype)){
         
@@ -395,10 +382,11 @@ function packet_recieved(_data){
           
         // Sensor is requesting time. 
         case I_TIME:
+          ms_sendtime(nodeid);
           break;
           
         case I_ID_REQUEST:
-          console.log('id request');
+          console.log('id request.');
           if (inclusion_mode == true){
             sendNextAvailableSensorId();
           }
@@ -407,6 +395,7 @@ function packet_recieved(_data){
         // Trigger inclusion_mode for a while
         case I_INCLUSION_MODE:
           console.log('entering inclusion mode.');
+          
           break;
           
         // Send the config to the node.   
