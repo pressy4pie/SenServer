@@ -18,7 +18,7 @@ var includeInThisContext = function(path) {
 includeInThisContext(__dirname+"/mymessage.js");
 
 // Set some initial variables. 
-const cloud_mqtt_server = "10.0.0.134:3002";
+const cloud_mqtt_server = "127.0.0.1:3002";
 const local_mqtt_server = "localhost:3003";
 const serial_number = process.env.SERIALNUM;
 
@@ -562,7 +562,7 @@ mqtt_client.on('message', function (topic, message) {
       break;
       
     // Other stuff.
-    case '/zc/' + serial_number + '/debug/raw_ms_msg':
+    case '/zc/' + serial_number + '/debug/raw_ms_msg/':
       //nothing of interest.
       break;
     // Print the message if it doesnt match anything else. 

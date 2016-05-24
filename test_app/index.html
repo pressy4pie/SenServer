@@ -8,8 +8,9 @@
     //sample HTML/JS script that will publish/subscribe to topics in the Google Chrome Console
     //by Matthew Bordignon @bordignon on twitter.
 
-    var wsbroker = "10.0.0.134";  //mqtt websocket enabled broker
+    var wsbroker = "127.0.0.1";  //mqtt websocket enabled broker
     var wsport = 3002 // port for above
+    var serial_number = 'test_serial' 
     var node_list = {};
     alarms_list = {};
     timers_list = {};
@@ -34,6 +35,10 @@
             node_list[node._id] = node;
             console.log(JSON.stringify(node_list,null,8));  
         break;
+        
+        case '/zc/' + serial_number + '/debug/raw_ms_msg':
+            //console.log(message.payloadString);
+            break;
            
         // placeholders.    
         case '/zc/' + "test_serial" + '/alarm/':
