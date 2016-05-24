@@ -16,21 +16,23 @@ var includeInThisContext = function(path) {
     vm.runInThisContext(code, path);
 }.bind(this);
 includeInThisContext(__dirname+"/mymessage.js");
-
+// Log utilities.
+var logUtils = require(__dirname+'/logutils.js');
 // Set some initial variables. 
 const cloud_mqtt_server = "127.0.0.1:3002";
 const local_mqtt_server = "localhost:3003";
 const serial_number = process.env.SERIALNUM;
+const serial_port = '/dev/ttyACM0';
 
 // These will need to be set pragmatically. 
 var inclusion_mode = true;
 
 // Initialize db connection.
-var dburl = 'mongodb://localhost:27017/'+serial_number;
+const dburl = 'mongodb://localhost:27017/'+serial_number;
 MongoClient.connect(dburl, function(err, db) {
   if(err)
     throw err;
-  console.log("Connected to DB.");
+  logUtils.dblog("Connected to DB.");
   
   // The collections of documents we deal with. 
   db.createCollection('nodes', function(err, collection) { });
@@ -46,14 +48,14 @@ MongoClient.connect(dburl, function(err, db) {
 });
 
 // Initialize the serial port. 
-var port = new SerialPort("/dev/ttyACM0", {
+var port = new SerialPort(serial_port, {
   baudrate: 115200,
   parser: serialport.parsers.readline('\n')
 }); 
 
 // Successful serial port open. 
 port.on('open', function () {
-  console.log('Serial port opened.');
+  logUtils.mslog('Serial port opened.');
 });
 
 var net_connection = function( ){
@@ -93,6 +95,7 @@ function ms_write_msg(_msg){
   port.write(_msg);
 }
 
+// Inclusion mode stuff.
 function start_inclusion_mode(){
   var inclusion_mode_duration = 60000; // one minute.
   var inclusion_mode_process = setInterval(toggle_inclusion_mode, inclusion_mode_duration);
@@ -132,7 +135,7 @@ function check_node_alive(){
           // If node hasnt been seen in the node_dead_milis 
           // I think this is the only math I've done in this entire program. 
           if( (Date.now() - node_json.last_seen) > node_dead_milis && node_json.alive == true){
-            console.log('node: '  + node_json._id + " is declared dead."); 
+            logUtils.mslog('node: '  + node_json._id + " is declared dead."); 
             nodeCollection.update( {'_id' : parseInt(node_json._id)}, {$set: {'alive': false}} );
           }
           });
@@ -161,16 +164,16 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-console.log('[DB UTILS] Saving new sensor on node: ' , _nodeid);
+logUtils.dblog('Saving new sensor on node: ' , _nodeid);
 
 // Build the json thats going to be used for the document and save it.
 nodeCursor = sensorCollection.find( {'node_id' : _nodeid} );
   nodeCursor.each(function (err, doc) {
     if (err) {
-      console.log(err);
+      logUtils.err(err);
       return;
     }else if (doc == null){
-      console.log('[DB UTILS] null sensor');
+      logUtils.dblog('Null sensor');
       // don't know whhy i pick up a null node, but oh well.
     }
     newSensor = { '_id': _nodeid + "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_type': sensor_subtype,'variables':{} };
@@ -182,11 +185,11 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   // This will be our document to update as saved above.
   thisSensorCursor = sensorCollection.find( { _id: _nodeid + "-" + sensor_id} );
   thisSensorCursor.each(function (err, doc){
-    if (err){console.log(err);}
+    if (err){logUtils.err(err);}
     else if (doc == null){}
     else {
       if(doc.variables == null){
-        console.log('[DB UTILS] No variables yet.');
+        logUtils.dblog('No variables yet.');
       }
     }
   });
@@ -216,7 +219,7 @@ function save_node_battery_level(_nodeid,bat_level){
 
 // save node name in db. 
 function save_node_name(_nodeid,node_name){
-  console.log('saveing node name')
+  logUtils.dblog('saveing node name')
   nodeCollection.update( {'_id': _nodeid}, { $set: {'node_name' : node_name} } );
   save_timestamp(_nodeid);
 }
@@ -225,13 +228,8 @@ function save_node_name(_nodeid,node_name){
 function sendNextAvailableSensorId() {
   //Start with 1 for good measure. 
   num_nodes = nodeCollection.count();
-  num_nodes.then(function(value){ 
-    console.log(value);
-    
-      
-    nid =  (parseInt(value) + 1 ); 
-    console.log(nid);
-    
+  num_nodes.then(function(value){      
+    nid =  (parseInt(value) + 1 );     
     //Build a blank node.
     var empty_node = { '_id' : nid,
                       'bat_level' : null,
@@ -257,7 +255,7 @@ function sendNextAvailableSensorId() {
 
 // This gets called when a new app connects to mqtt..
 function publish_all(){
-  console.log('publishing all.');
+  logUtils.mqttlog('publishing all.');
   publish_nodes();
   publish_alarms();
   publish_timers();
@@ -265,19 +263,19 @@ function publish_all(){
 
 // publish our nodes. 
 function publish_nodes(){
-  console.log('[ MQTT ] Publishing nodes.');
+  logUtils.mqttlog('Publishing nodes.');
   
   // Get cursor for nodes with id greater than zero. 
   var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} );
   nodeCursor.each(function (err, doc) {
     if (err) {
-      console.log(err);
+      logUtils.err(err);
     } else if ( doc!= null) {
       var node_to_publish = doc;
       var sensor_cursor = sensorCollection.find( {node_id : node_to_publish['_id']} );
       sensor_cursor.each(function ( serr, sdoc ){
         if (serr){
-          console.log(err);
+          logUtils.err(err);
         } else if (sdoc!= null){
           node_to_publish.sensors[sdoc['sensor_id']] = sdoc;
           mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
@@ -358,7 +356,7 @@ function packet_recieved(_data){
       }
       else {
         // uncaught presentation. Im not perfect ok.
-        console.log('something weird?: ' + _data);
+        logUtils.log('something weird?: ' + _data);
       } 
       break;
 
@@ -369,7 +367,7 @@ function packet_recieved(_data){
       break;
 
     case C_REQ:
-      console.log('C_REQ message');
+      logUtils.mslog('C_REQ message');
       // I think time messages might go in here.
       break;
       
@@ -389,7 +387,7 @@ function packet_recieved(_data){
           break;
           
         case I_ID_REQUEST:
-          console.log('id request.');
+          logUtils.mslog('ID request.');
           if (inclusion_mode == true){
             sendNextAvailableSensorId();
           }
@@ -397,7 +395,7 @@ function packet_recieved(_data){
           
         // Trigger inclusion_mode for a while
         case I_INCLUSION_MODE:
-          console.log('entering inclusion mode.');
+          logUtils.mslog('Entering inclusion mode.');
           
           break;
           
@@ -409,7 +407,7 @@ function packet_recieved(_data){
         // We dont use this but we could. 
         case I_LOG_MESSAGE:
           if (nodeid == "0") break;
-          console.log("LOG MESSAGE FROM: " + nodeid + " MESSAGE: " + payload.trim() );
+          logUtils.mslog("LOG MESSAGE FROM: " + nodeid + " MESSAGE: " + payload.trim() );
           break;
           
         // Node name and version. 
@@ -422,20 +420,20 @@ function packet_recieved(_data){
           
         // The gateway is ready. 
         case I_GATEWAY_READY:
-          console.log("Serial Gateway Ready.");
+          logUtils.mslog("Serial Gateway Ready.");
           break;
           
         // i know the heartbeat is usefull but not using it yet. 
         case I_HEARTBEAT:
-          console.log('heartbeat: ' + _data);
+          logUtils.mslog('heartbeat: ' + _data);
           break;
         case I_HEARTBEAT_RESPONSE:
-          console.log('heartbeat Response: ' + _data);
+          logUtils.mslog('heartbeat Response: ' + _data);
           break;
         
         // I dont think we use the rest of these in tis situation.   
         case I_PRESENTATION:
-          console.log('presentation message: '+ _data);
+          logUtils.mslog('presentation message: '+ _data);
           break;
           
         // We don't use any of these. 
@@ -469,7 +467,7 @@ function packet_recieved(_data){
       break;
       
     case C_STREAM:
-      console.log('C_STREAM message');
+      logUtils.mslog('C_STREAM message');
       switch(parseInt(subtype)){
         case ST_FIRMWARE_CONFIG_REQUEST:
           break; 
@@ -488,15 +486,13 @@ function packet_recieved(_data){
   }
 }
 
-// Subscribe to our serial number. 
-// Eventually we will need auth for this. 
-mqtt_client.subscribe('/zc/' + serial_number + "/#");
-console.log('subscribed to: ' + '/zc/' + serial_number);
-
-
 // Successful connection to mqtt. 
 mqtt_client.on('connect', () => {  
-  console.log('Connected to mqtt.');
+  logUtils.mqttlog('Connected to mqtt.');
+  // Subscribe to our serial number. 
+  // Eventually we will need auth for this. 
+  mqtt_client.subscribe('/zc/' + serial_number + "/#");
+  logUtils.mqttlog('subscribed to: ' + '/zc/' + serial_number);
   start_node_checker();
 })
 
@@ -512,7 +508,7 @@ port.on('data', function (data) {
   }
   else{
     // Not a real mysensors message. Not sure how you got here.
-    console.log('UNRECOGNIZED MESSAGE');
+    logUtils.log('UNRECOGNIZED MESSAGE');
   }
 });
 
@@ -522,7 +518,7 @@ mqtt_client.on('message', function (topic, message) {
     
     // If its a plain subscription to the base level, publish all nodes,alarms,timers etc.
     case '/zc/' + serial_number + "/":
-      console.log('new connection');
+      logUtils.mqttlog('new connection');
       publish_all();
       break;
    
@@ -570,7 +566,6 @@ mqtt_client.on('message', function (topic, message) {
       break;
     // Print the message if it doesnt match anything else. 
     default:
-      //console.log([topic, message].join(": "));
       break;
   }
 });

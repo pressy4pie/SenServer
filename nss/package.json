@@ -4,6 +4,7 @@
   "description": "The gateway between the EKG Serial Gateway and the Cloud",
   "main": "index.js",
   "dependencies": {
+    "chalk": "^1.1.3",
     "express": "^4.13.4",
     "mongodb": "^2.1.19",
     "mosca": "^1.3.0",
