@@ -161,29 +161,35 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  console.log('saving new sensor on node: ' , _nodeid);
-  
-  // Build the json thats going to be used for the document and save it.
-  newSensor = { '_id': _nodeid+ "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_type': sensor_subtype,'variables':{} };
-  sensorCollection.save(newSensor);
-  save_timestamp(_nodeid);
+console.log('[DB UTILS] Saving new sensor on node: ' , _nodeid);
+
+// Build the json thats going to be used for the document and save it.
+nodeCursor = sensorCollection.find( {'node_id' : _nodeid} );
+  nodeCursor.each(function (err, doc) {
+    if (err) {
+      console.log(err);
+      return;
+    }else if (doc == null){
+      console.log('[DB UTILS] null sensor');
+      // don't know whhy i pick up a null node, but oh well.
+    }
+    newSensor = { '_id': _nodeid + "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_type': sensor_subtype,'variables':{} };
+  }); 
 }
 
 // Save the sensor state to teh db 
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   // This will be our document to update as saved above.
-  thisSensor = sensorCollection.find( { _id: _nodeid + "-" + sensor_id} ).toArray();
-  // When it is populated by mongodb (not promise {<pending>})
-  thisSensor.then(function( sensor_to_publish ){
-    // change the array to a string, remove the brackets, and change it back to a json. 
-    var sensor_to_publish_str = JSON.stringify(sensor_to_publish);
-    sensor_to_publish_str = sensor_to_publish_str.substring(1, sensor_to_publish_str.length-1);
-    var sensor_to_publish_obj = JSON.parse(sensor_to_publish_str);
-    
-    // Save the new sensor variable and update it in db. 
-    sensor_to_publish_obj.variables[sensor_type] = payload
-    sensorCollection.update( { _id: _nodeid + "-" + sensor_id }, sensor_to_publish_obj );
-  }); 
+  thisSensorCursor = sensorCollection.find( { _id: _nodeid + "-" + sensor_id} );
+  thisSensorCursor.each(function (err, doc){
+    if (err){console.log(err);}
+    else if (doc == null){}
+    else {
+      if(doc.variables == null){
+        console.log('[DB UTILS] No variables yet.');
+      }
+    }
+  });
 
   // Save timestamp, and update the state in mqtt. 
   save_timestamp(_nodeid);
@@ -259,7 +265,7 @@ function publish_all(){
 
 // publish our nodes. 
 function publish_nodes(){
-  console.log('publishing nodes.');
+  console.log('[ MQTT ] Publishing nodes.');
   
   // Get cursor for nodes with id greater than zero. 
   var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} );
@@ -268,15 +274,12 @@ function publish_nodes(){
       console.log(err);
     } else if ( doc!= null) {
       var node_to_publish = doc;
-      // Get sensors for this node. 
       var sensor_cursor = sensorCollection.find( {node_id : node_to_publish['_id']} );
       sensor_cursor.each(function ( serr, sdoc ){
-        //console.log( JSON.stringify(node_to_publish) );
         if (serr){
           console.log(err);
         } else if (sdoc!= null){
-          node_to_publish.sensors[sdoc['sensor_id']] = sdoc
-          //console.log('published node.');
+          node_to_publish.sensors[sdoc['sensor_id']] = sdoc;
           mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
         }
       });
