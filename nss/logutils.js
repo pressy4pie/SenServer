@@ -16,7 +16,7 @@ module.exports = {
       console.log( chalk.green('[ MQTT UTILS ] ') , log_str );   
   },
   log: function ( log_str ) {
-      console.log( chalk.cyan('[   DEBUG  ] ') , log_str );
+      console.log( chalk.cyan('[    DEBUG   ] ') , log_str );
   },
   errlog: function ( log_str ) {
       console.log( chalk.red('[   !ERROR!   ] ') , log_str );

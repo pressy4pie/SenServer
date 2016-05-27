@@ -1,14 +1,54 @@
 var mqtt = require('mqtt');
+
+//Environment
+var environment = process.env.ENV;
+const serial_number = process.env.SERIALNUM;
+
+// Deps.
 var serialport = require('serialport');
 var SerialPort = serialport.SerialPort;
 var MongoClient = require('mongodb').MongoClient;
-
+var logUtils = require(__dirname+'/logutils.js');
 // This is because I didn't want the contents of mymessage.js in this file. 
 var vm = require('vm');
 var fs = require('fs');
 
 // Something that should be got from our non existant configuration file. 
 const node_dead_milis = 900000; //15 minutes
+// These will need to be set pragmatically. 
+var inclusion_mode = true;
+
+var net_connection = function( ){
+  // Do we have internet? 
+  // This obviously does not work yet. 
+  return true;
+}
+
+logUtils.log('ENVIRONMENT: ' + environment);
+if( environment == 'prod'  ){
+  // Check for internet, and if not start our own mqtt server. 
+  if (net_connection){
+    global.dburl = 'mongodb://localhost:27017/'+serial_number;
+    global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
+    global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
+  }
+  else {
+    // I would like nodejs to launch the mqtt broker right before connecting to it in this case.
+    global.dburl = 'mongodb://localhost:27017/'+serial_number;
+    global.local_mqtt_server = "localhost:3003";
+    global.mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
+  }
+  // Serial port. 
+  global.serial_port = '/dev/ttyUSB0';
+}
+else if ( environment == 'dev' ){
+  //global.cloud_mqtt_server = "127.0.0.1:3002";
+  global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
+  global.local_mqtt_server = "localhost:3003";
+  global.serial_port = '/dev/ttyACM0';
+  global.dburl = 'mongodb://localhost:27017/'+serial_number;
+  global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
+}
 
 // Get the mymessage variables because i dont wan't it in this file. its a huge list. 
 var includeInThisContext = function(path) {
@@ -16,19 +56,8 @@ var includeInThisContext = function(path) {
     vm.runInThisContext(code, path);
 }.bind(this);
 includeInThisContext(__dirname+"/mymessage.js");
-// Log utilities.
-var logUtils = require(__dirname+'/logutils.js');
-// Set some initial variables. 
-const cloud_mqtt_server = "127.0.0.1:3002";
-const local_mqtt_server = "localhost:3003";
-const serial_number = process.env.SERIALNUM;
-const serial_port = '/dev/ttyACM0';
-
-// These will need to be set pragmatically. 
-var inclusion_mode = true;
 
 // Initialize db connection.
-const dburl = 'mongodb://localhost:27017/'+serial_number;
 MongoClient.connect(dburl, function(err, db) {
   if(err)
     throw err;
@@ -57,22 +86,6 @@ var port = new SerialPort(serial_port, {
 port.on('open', function () {
   logUtils.mslog('Serial port opened.');
 });
-
-var net_connection = function( ){
-  // Do we have internet? 
-  // This obviously does not work yet. 
-  return true;
-}
-
-// Check for internet and open a mqtt websocket.
-if (net_connection){
-  // Connect to the EKG app server. Easy Peasy.
-  var mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
-}
-else {
-  // I would like nodejs to launch the mqtt broker right before connecting to it in this case.
-  var mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
-}
 
 // Encode a mysensors message returned as a string.
 function ms_encode(destination, sensor, command, acknowledge, type, payload) {
@@ -272,15 +285,18 @@ function publish_nodes(){
       logUtils.err(err);
     } else if ( doc!= null) {
       var node_to_publish = doc;
+      mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
+      /*
       var sensor_cursor = sensorCollection.find( {node_id : node_to_publish['_id']} );
       sensor_cursor.each(function ( serr, sdoc ){
         if (serr){
           logUtils.err(err);
         } else if (sdoc!= null){
           node_to_publish.sensors[sdoc['sensor_id']] = sdoc;
+          logUtils.log(sdoc);
           mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
         }
-      });
+      });*/
     }   
   }); 
 }
@@ -524,7 +540,6 @@ mqtt_client.on('message', function (topic, message) {
    
    // This is just a test that i use for stuff.    
     case '/zc/' + serial_number + "/test/":
-      check_node_alive();
       break;
     
     // Specific api parts.
