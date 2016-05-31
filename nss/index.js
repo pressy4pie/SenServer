@@ -1,10 +1,15 @@
-var mqtt = require('mqtt');
+/*
+*
+* THIS IS MY FIRST JAVASCRIPT PROGRAM DON'T JUDGE, OKAY GUY. 
+*
+*/
 
 //Environment
 var environment = process.env.ENV;
 const serial_number = process.env.SERIALNUM;
 
 // Deps.
+var mqtt = require('mqtt');
 var serialport = require('serialport');
 var SerialPort = serialport.SerialPort;
 var MongoClient = require('mongodb').MongoClient;
@@ -13,10 +18,8 @@ var logUtils = require(__dirname+'/logutils.js');
 var vm = require('vm');
 var fs = require('fs');
 
-// Something that should be got from our non existant configuration file. 
-const node_dead_milis = 900000; //15 minutes
-// These will need to be set pragmatically. 
-var inclusion_mode = true;
+// Set inclusion mode to false in the start so we don't get undefined errors.
+global.inclusion_mode = false;
 
 var net_connection = function( ){
   // Do we have internet? 
@@ -24,8 +27,15 @@ var net_connection = function( ){
   return true;
 }
 
-logUtils.log('ENVIRONMENT: ' + environment);
+// Integrety check because I always to set env variables before starting. 
+if(environment == null ){ logUtils.log('MISSING ENVIRONMENT. BAILING!1!!1!!11'); process.exit(-1);  } else {
+  logUtils.log('ENVIRONMENT: ' + environment); }
+
+// Production environment. 
 if( environment == 'prod'  ){
+  // Something that should be got from our non existant configuration file. 
+  global.node_dead_milis = 900000; //15 minutes
+  
   // Check for internet, and if not start our own mqtt server. 
   if (net_connection){
     global.dburl = 'mongodb://localhost:27017/'+serial_number;
@@ -38,16 +48,24 @@ if( environment == 'prod'  ){
     global.local_mqtt_server = "localhost:3003";
     global.mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
   }
+  
   // Serial port. 
   global.serial_port = '/dev/ttyUSB0';
+  // This shouldn't be here, but i'll move it l8r bro.
+  mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
 }
+// Development environment.
 else if ( environment == 'dev' ){
-  //global.cloud_mqtt_server = "127.0.0.1:3002";
+  // Something that should be got from our non existant configuration file. 
+  global.node_dead_milis = 900000; //15 minutes
+  
   global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
   global.local_mqtt_server = "localhost:3003";
   global.serial_port = '/dev/ttyACM0';
   global.dburl = 'mongodb://localhost:27017/'+serial_number;
   global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
+  // See above. 
+  mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
 }
 
 // Get the mymessage variables because i dont wan't it in this file. its a huge list. 
@@ -63,17 +81,21 @@ MongoClient.connect(dburl, function(err, db) {
     throw err;
   logUtils.dblog("Connected to DB.");
   
-  // The collections of documents we deal with. 
-  db.createCollection('nodes', function(err, collection) { });
-  db.createCollection('sensors', function(err, collection) { });
+  // The collections of documents we deal with. This could probably be more elegant. 
+  db.createCollection('nodes', function(err, collection)   { if(err){ logUtils.err(err); } });
+  db.createCollection('sensors', function(err, collection) { if(err){ logUtils.err(err); } });
+  db.createCollection('alarms', function(err, collection)  { if(err){ logUtils.err(err); } });
+  db.createCollection('timers', function(err, collection)  { if(err){ logUtils.err(err); } });
+  db.createCollection('config', function(err, collection)  { if(err){ logUtils.err(err); } });
   
-  // These are our two collections for mysensors messages. 
+  // These are our two collections for mysensors messages. Partially working. 
   nodeCollection = db.collection('nodes');
   sensorCollection = db.collection('sensors');
   
   // This stuff doesn't work yet. 
   alarmCollection = db.collection('alarms');
   timerCollection = db.collection('timers');
+  configCollection = db.collection('config');
 });
 
 // Initialize the serial port. 
@@ -87,39 +109,19 @@ port.on('open', function () {
   logUtils.mslog('Serial port opened.');
 });
 
-// Encode a mysensors message returned as a string.
-function ms_encode(destination, sensor, command, acknowledge, type, payload) {
-	var msg = destination.toString(10) + ";" + sensor.toString(10) + ";" + command.toString(10) + ";" + acknowledge.toString(10) + ";" + type.toString(10) + ";";
-	if (command == 4) {
-		for (var i = 0; i < payload.length; i++) {
-			if (payload[i] < 16)
-				msg += "0";
-			msg += payload[i].toString(16);
-		}
-	} else {
-		msg += payload;
-	}
-	msg += '\n';
-	return msg.toString();
-}
-
-// Send a message to the gateway. Do i really need this?
-function ms_write_msg(_msg){
-  port.write(_msg);
-}
-
-// Inclusion mode stuff.
-function start_inclusion_mode(){
-  var inclusion_mode_duration = 60000; // one minute.
-  var inclusion_mode_process = setInterval(toggle_inclusion_mode, inclusion_mode_duration);
-}
-
-function toggle_inclusion_mode(){
-  if(inclusion_mode){
-    inclusion_mode = false;    
+// Inclusion mode toggler. This can be forced anywhere in the program it not bound to the Gateway. 
+function toggle_inclusion_mode(toggle){
+  // Set to true or false accordingly. 
+  if(toggle === 1){
+    logUtils.mslog('Entering inclusion mode.');
+    global.inclusion_mode = true;
+    mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'on');
+    
+  } else if( toggle === 0 ){
+    logUtils.mslog('Exiting inclusion mode.');
+    global.inclusion_mode = false;
+    mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
   }
-  // I think this is the right syntax.
-  inclusion_mode_process.cancel();
 }
 
 // Start the background checker for node aliveness.
@@ -132,29 +134,31 @@ function start_node_checker(){
 function check_node_alive(){
   num_nodes = nodeCollection.count();
   num_nodes.then(function(value){ 
-        for(var i=1; i <= parseInt(value); i++){
-        
-        thisNode = nodeCollection.find( { _id: parseInt(i) }).toArray();
-        thisNode.then(function( node_to_check ){
-
-          // Create a string to work with. 
-          node_to_check_str = JSON.stringify(node_to_check);
-          // Get rid of the brackets. 
-          node_to_check_str = node_to_check_str.replace(/[\[\]']+/g,'');
-          
-          // Convert it back. Thanks mongodb.
-          var node_json = JSON.parse(node_to_check_str);
-          
-          // If node hasnt been seen in the node_dead_milis 
-          // I think this is the only math I've done in this entire program. 
-          if( (Date.now() - node_json.last_seen) > node_dead_milis && node_json.alive == true){
-            logUtils.mslog('node: '  + node_json._id + " is declared dead."); 
-            nodeCollection.update( {'_id' : parseInt(node_json._id)}, {$set: {'alive': false}} );
-          }
-          });
+    for(var i=1; i <= parseInt(value); i++){
+    thisNode = nodeCollection.find( { _id: parseInt(i) }).toArray();
+    thisNode.then(function( node_to_check ){
+      // Create a string to work with. 
+      node_to_check_str = JSON.stringify(node_to_check);
+      // Get rid of the brackets. 
+      node_to_check_str = node_to_check_str.replace(/[\[\]']+/g,'');
+      
+      // Convert it back. Thanks mongodb.
+      var node_json = JSON.parse(node_to_check_str);
+      
+      // If node hasnt been seen in the node_dead_milis 
+      // I think this is the only math I've done in this entire program. 
+      if( (Date.now() - node_json.last_seen) > node_dead_milis && node_json.alive == true){
+        logUtils.mslog('node: '  + node_json._id + " is declared dead."); 
+        nodeCollection.update( {'_id' : parseInt(node_json._id)}, {$set: {'alive': false}} );
+        }
+      });
     }
   });
 }
+
+/*
+* DATABASE THINGS FOR MYSENSORS.
+*/
 
 // Save a timer in the DB.
 function save_timer(){
@@ -313,6 +317,31 @@ function publish_timers(){
   mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify('{test:"test"}') );
 }
 
+/*
+* My Sensors functions. 
+*/
+
+// Encode a mysensors message returned as a string.
+function ms_encode(destination, sensor, command, acknowledge, type, payload) {
+	var msg = destination.toString(10) + ";" + sensor.toString(10) + ";" + command.toString(10) + ";" + acknowledge.toString(10) + ";" + type.toString(10) + ";";
+	if (command == 4) {
+		for (var i = 0; i < payload.length; i++) {
+			if (payload[i] < 16)
+				msg += "0";
+			msg += payload[i].toString(16);
+		}
+	} else {
+		msg += payload;
+	}
+	msg += '\n';
+	return msg.toString();
+}
+
+// Send a message to the gateway. Do i really need this?
+function ms_write_msg(_msg){
+  port.write(_msg);
+}
+
 // Send a config to the sensors. (Imperial or Metric.)
 function ms_sendconfig(_nodeid){
   // Imperial for now.
@@ -327,6 +356,7 @@ function ms_sendconfig(_nodeid){
   ms_write_msg(message);
 }
 
+// Send time to _nodeid
 function ms_sendtime(_nodeid){
   // I don't think this is supposed to be in miliseconds.
   var payload = Date.now();
@@ -339,7 +369,6 @@ function ms_sendtime(_nodeid){
   // Build the message and send it.
   var message = ms_encode(destination,sensor,messagetype,ack,subtype,payload);
   ms_write_msg(message);
-  
 }
 
 // Callback. Decide what do do with the mysensors packet. 
@@ -389,7 +418,7 @@ function packet_recieved(_data){
       
     case C_INTERNAL:
     // Catch that bug in motor controllers.
-    if (childsensorid == "0" || nodeid == "0") break;
+    //if (childsensorid == "0" || nodeid == "0") break;
       switch(parseInt(subtype)){
         
         // The sensors battery has been updated.                  
@@ -404,15 +433,13 @@ function packet_recieved(_data){
           
         case I_ID_REQUEST:
           logUtils.mslog('ID request.');
-          if (inclusion_mode == true){
-            sendNextAvailableSensorId();
-          }
-          break;  
+          if ( inclusion_mode == true ){ sendNextAvailableSensorId(); }
+          else logUtils.mslog('NOT IN INCLUSION MODE'); 
+          break;
           
         // Trigger inclusion_mode for a while
         case I_INCLUSION_MODE:
-          logUtils.mslog('Entering inclusion mode.');
-          
+          toggle_inclusion_mode(parseInt(payload.trim()));
           break;
           
         // Send the config to the node.   
@@ -428,15 +455,18 @@ function packet_recieved(_data){
           
         // Node name and version. 
         case I_SKETCH_NAME:
+          if (nodeid == "0") break;
           save_node_name(nodeid, payload);
           break;
         case I_SKETCH_VERSION:
+          if (nodeid == "0") break;
           save_node_lib_version(nodeid,payload);
           break;
           
         // The gateway is ready. 
         case I_GATEWAY_READY:
           logUtils.mslog("Serial Gateway Ready.");
+          global.gateway_ready = true;
           break;
           
         // i know the heartbeat is usefull but not using it yet. 
@@ -515,7 +545,7 @@ mqtt_client.on('connect', () => {
 
 // When the serial port gets data. 
 port.on('data', function (data) {
-  // Print the serial message.
+  if (data == null) return;
   if(data.match(/;/g).length == 5 ){ 
     // A valid mymessage
     // Publish the raw message to mqtt for fun.
@@ -541,11 +571,35 @@ mqtt_client.on('message', function (topic, message) {
    // This is just a test that i use for stuff.    
     case '/zc/' + serial_number + "/test/":
       break;
+      
+    /*
+    * INCLUSION MODE STUFFS.
+    */
     
-    // Specific api parts.
-    case '/zc/' + serial_number + '/get_nodes/':
-      publish_nodes();
+    // User is able to start and end inclusion_mode with the app. 
+    case '/zc/' + serial_number + "/set_inclusion_mode/":
+      toggle_inclusion_mode(1);
+      mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'on');
       break;
+    
+    // end inclusion mode. 
+    case '/zc/' + serial_number + "/stop_inclusion_mode/":
+      toggle_inclusion_mode(0);
+      mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
+      break; 
+      
+    case '/zc/' + serial_number + "/get_current_inclusion_mode/":
+      if( inclusion_mode == true){
+        mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'on');
+      } else {
+        mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
+      }
+      
+      break;     
+ 
+    /*
+    * SENSOR STUFFS.
+    */
       
     // Update a variable.
     case '/zc/' + serial_number + '/update_sensor_variable/':
@@ -553,32 +607,48 @@ mqtt_client.on('message', function (topic, message) {
       msg = ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
       ms_write_msg(msg);
       break; 
+
+    // Publish all the nodes. 
+    case '/zc/' + serial_number + '/get_nodes/':
+      publish_nodes();
+      break;      
       
+    /*
+    * TIMER STUFFS.
+    */ 
+    
     // Create a new timer. 
     case '/zc/' + serial_number + '/create_timer/':
       msg_json = JSON.parse(message.toString());
       save_timer();
       break;
+
+    // Publish timers.
+    case '/zc' + serial_number + '/get_timers/':
+      publish_timers();
+      break;
+      
+    /*
+    * ALARM STUFFS.
+    */
     
     // Create an alarm. 
     case '/zc/' + serial_number + '/create_alarm/':
       msg_json = JSON.parse(message.toString());
       save_alarm();
       break;
-      
-    // Publish timers.
-    case '/zc' + serial_number + '/get_timers/':
-      publish_timers();
-      break;
+
     // Publish alarms. 
     case '/zc' + serial_number + '/get_alarms/':
       publish_alarms();
       break;
       
-    // Other stuff.
+    /*
+    * DEBUG STUFFS. 
+    */
     case '/zc/' + serial_number + '/debug/raw_ms_msg/':
-      //nothing of interest.
       break;
+      
     // Print the message if it doesnt match anything else. 
     default:
       break;
