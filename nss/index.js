@@ -130,6 +130,16 @@ function start_node_checker(){
   var node_checker_id = setInterval(check_node_alive, node_check_frequency);
 }
 
+// Start alarm checker.
+function start_alarm_checker(){
+  
+}
+
+// Start timer checker
+function start_timer_checker(){
+  
+}
+
 // Check if nodes are alive. Will probably rewrite this, not in a for loop.
 function check_node_alive(){
   num_nodes = nodeCollection.count();
@@ -161,13 +171,13 @@ function check_node_alive(){
 */
 
 // Save a timer in the DB.
-function save_timer(){
+function save_timer(){  
   // NO
 }
 
 // Save an alarm in the DB.
-function save_alarm(){
-  // NUOPE
+function save_alarm( alarm_to_save ){  
+  // i quit.
 }
 
 // This is usually a callback from other save_xx whatever. 
@@ -177,7 +187,6 @@ function save_timestamp(_nodeid){
   // Obviously if we just updated time, we are alive lol.
   nodeCollection.update( {'_id': _nodeid}, { $set: {'alive' : true } } );
 }
-
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
@@ -307,14 +316,61 @@ function publish_nodes(){
 
 // publish our alarms.
 function publish_alarms(){
+  logUtils.mqttlog('Publishing alarms');
+  var test_alarm = 
+  {
+    _id : 1,
+    name : 'when temp is 70 degrees, open sides.', // String of name.
+    enabled : true,
+    created : 1464378283,    // Fri, 27 May 2016 19:44:43 GMT
+    valid_from : 1464378283, // Fri, 27 May 2016 19:44:43 GMT
+    valid_thru : 1495914283, // Sat, 27 May 2017 19:44:43 GMT
+    delay : 13, // seconds
+    notify_email : [ 'bob@test.com' ], //list of emails to notify.
+    execute : [{'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 }] // update node id 1, sensor id 1, of type 29, turn it on. 
+  };
+  
   //not working
-  mqtt_client.publish("/zc/" + serial_number + "/alarm/", JSON.stringify('{test:"test"}') );
+  mqtt_client.publish("/zc/" + serial_number + "/alarm/", JSON.stringify(test_alarm) );
 }
 
 // publish our nodes.
 function publish_timers(){
+  logUtils.mqttlog('Publishing timers');
+  var test_timer_schedule = 
+  {
+    _id : 1,
+    name : '2:42 daily', // string of timer name.
+    enabled : true,
+    created : 1464378283,    // Fri, 27 May 2016 19:44:43 GMT
+    valid_from : 1464378283, // Fri, 27 May 2016 19:44:43 GMT
+    valid_thru : 1495914283, // Sat, 27 May 2017 19:44:43 GMT
+    delay : 13, // seconds
+    timer_type : 'schedule',
+    hour :  14,
+    minute : 42,
+    execute : [ {} ],
+    notify_email : [ 'bob@test.com' ]
+  };
+  
+  var test_timer_cron = 
+  {
+    _id : 2,
+    name : ' every day at 4:05 pm',
+    enabled : false,
+    created : 1464378283,    // Fri, 27 May 2016 19:44:43 GMT
+    valid_from : 1464378283, // Fri, 27 May 2016 19:44:43 GMT
+    valid_thru : 1495914283, // Sat, 27 May 2017 19:44:43 GMT
+    delay : 43, // seconds
+    timer_type : 'cron',
+    cron_schedule : '5 4 * * *', // At 04:05 every day.
+    execute : [ {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 }, {'node_id': 2, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 30, 'payload': 0 } ],
+    notify : [ 'bob@email.com', 'joel@joel.com', '5306467193@metropcs.net' ] // list of emails. (can be phone emails.)
+  };
+  
   // not working. 
-  mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify('{test:"test"}') );
+  mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify(test_timer_cron) );
+  mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify(test_timer_schedule) );
 }
 
 /*
@@ -531,6 +587,14 @@ function packet_recieved(_data){
       break;
   }
 }
+/*
+* Kick off the rest of the program. 
+*/
+function init_program(){
+  start_node_checker();
+  start_alarm_checker();
+  start_timer_checker();
+}
 
 // Successful connection to mqtt. 
 mqtt_client.on('connect', () => {  
@@ -539,9 +603,8 @@ mqtt_client.on('connect', () => {
   // Eventually we will need auth for this. 
   mqtt_client.subscribe('/zc/' + serial_number + "/#");
   logUtils.mqttlog('subscribed to: ' + '/zc/' + serial_number);
-  start_node_checker();
-})
-
+  init_program();
+});
 
 // When the serial port gets data. 
 port.on('data', function (data) {
@@ -624,7 +687,7 @@ mqtt_client.on('message', function (topic, message) {
       break;
 
     // Publish timers.
-    case '/zc' + serial_number + '/get_timers/':
+    case '/zc/' + serial_number + '/get_timers/':
       publish_timers();
       break;
       
@@ -635,11 +698,11 @@ mqtt_client.on('message', function (topic, message) {
     // Create an alarm. 
     case '/zc/' + serial_number + '/create_alarm/':
       msg_json = JSON.parse(message.toString());
-      save_alarm();
+      save_alarm( msg_json );
       break;
 
     // Publish alarms. 
-    case '/zc' + serial_number + '/get_alarms/':
+    case '/zc/' + serial_number + '/get_alarms/':
       publish_alarms();
       break;
       

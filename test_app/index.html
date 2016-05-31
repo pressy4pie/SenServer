@@ -51,17 +51,19 @@
             var alarm = JSON.parse(raw_msg);
             
             //add it to our list. 
-            alarms_list["alarm"+alarm.test] = alarm         
+            alarms_list["alarm"+alarm._id] = alarm;
+            console.log(JSON.stringify(alarms_list,null,8));      
         break;
         
-        case '/zc/' + "test_serial" + '/timers/':
+        case '/zc/' + "test_serial" + '/timer/':
             console.log("new timers published, fetching..");
             // make a json of the json. 
             raw_msg = message.payloadString;
-            var alarm = JSON.parse(raw_msg);
+            var timer = JSON.parse(raw_msg);
             
             //add it to our list. 
-            node_list["alarm"+alarm.id] = alarm  
+            timers_list["timer"+timer._id] = timer;
+            console.log(JSON.stringify(timers_list,null,8));  
         break;
     }
       
@@ -111,25 +113,48 @@
         alert(JSON.stringify(timers_list,null,8));
   }
   
-    function up(){
-      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 }
+  function up(){
+      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 };
         message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
         message.destinationName = "/zc/test_serial/update_sensor_variable/";
         client.send(message);
   }
   
-      function down(){
-      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 30, 'payload': 1 }
+  function down(){
+      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 30, 'payload': 1 };
         message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
         message.destinationName = "/zc/test_serial/update_sensor_variable/";
         client.send(message);
   }
   
-      function stop(){
-      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 }
+  function stop(){
+      var msg = {'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 };
         message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
         message.destinationName = "/zc/test_serial/update_sensor_variable/";
         client.send(message);
+  }
+  
+  function create_alarm(){  
+    var alarm_msg =  {
+    name : 'test alarm',
+    enabled : true,
+    created : Date.now(),    
+    valid_from : Date.now(),
+    valid_thru : 1559336567,
+    delay : 30, // seconds
+    
+    node_to_check : 1, // the node  
+    sensor_to_check : 2, // the sensor on that node. 
+    condition : 'gt', // greater than
+    value : 13,
+    
+    notify_email : ['connor@emeraldkingdomgreenhouse.com'],
+    execute : [{'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 }]
+    };
+  
+    message = new Paho.MQTT.Message( JSON.stringify(alarm_msg) ) ;
+    message.destinationName = "/zc/test_serial/create_alarm/";
+    client.send(message);
   }
 
 </script>
@@ -141,9 +166,12 @@
         <button onclick=" get_alarms(); ">Get Alarms</button>
         <button onclick=" get_timers(); ">Get Timers</button>
         
+        
         <button onclick=" up(); ">up</button>
         <button onclick=" down(); ">down</button>
         <button onclick=" stop(); ">stop</button>
+        
+        <button onclick=" create_alarm(); ">create_alarm</button>
   </body>
 
 </html>
