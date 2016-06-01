@@ -1,8 +1,8 @@
-/*
-*
-* THIS IS MY FIRST JAVASCRIPT PROGRAM DON'T JUDGE, OKAY GUY. 
-*
-*/
+/** @desc This is the gateway program between our NRF Radios to the cloud.
+ *  @summary Very much a work in progress.
+ *  @author Connor Rigby
+ */
+var SenServer;
 
 //Environment
 var environment = process.env.ENV;
@@ -132,12 +132,17 @@ function start_node_checker(){
 
 // Start alarm checker.
 function start_alarm_checker(){
-  
+  // for every alarm in db:
+  // create something to watch the conditional and act upon it accordingly.
 }
 
 // Start timer checker
 function start_timer_checker(){
-  
+  //for every timer in db: 
+  // if timer is cron:
+    // create cron job to execute the execute portion. 
+  // if timer is schedule:
+    // setInterval the amount of time to execute the execute portion. will probably mqtt to myself. 
 }
 
 // Check if nodes are alive. Will probably rewrite this, not in a for loop.
@@ -171,7 +176,7 @@ function check_node_alive(){
 */
 
 // Save a timer in the DB.
-function save_timer(){  
+function save_timer( timer_to_save ){  
   // NO
 }
 
@@ -290,7 +295,6 @@ function publish_all(){
 // publish our nodes. 
 function publish_nodes(){
   logUtils.mqttlog('Publishing nodes.');
-  
   // Get cursor for nodes with id greater than zero. 
   var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} );
   nodeCursor.each(function (err, doc) {
@@ -299,19 +303,11 @@ function publish_nodes(){
     } else if ( doc!= null) {
       var node_to_publish = doc;
       mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
-      /*
-      var sensor_cursor = sensorCollection.find( {node_id : node_to_publish['_id']} );
-      sensor_cursor.each(function ( serr, sdoc ){
-        if (serr){
-          logUtils.err(err);
-        } else if (sdoc!= null){
-          node_to_publish.sensors[sdoc['sensor_id']] = sdoc;
-          logUtils.log(sdoc);
-          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
-        }
-      });*/
-    }   
-  }); 
+    } 
+    else { // after going thru all the nodes, we get a null one. So use it to publish the done signal. 
+      mqtt_client.publish("/zc/" + serial_number + "/node/", 'done' );
+    }
+  });
 }
 
 // publish our alarms.
@@ -326,12 +322,20 @@ function publish_alarms(){
     valid_from : 1464378283, // Fri, 27 May 2016 19:44:43 GMT
     valid_thru : 1495914283, // Sat, 27 May 2017 19:44:43 GMT
     delay : 13, // seconds
+    
+    conditional: { node_to_check : 1, // Node to check. 
+                   sensor_to_check : 3, // Sensor on that node
+                   value : 31135, // value to check against.
+                   condition : 'gt' //greater than
+                 },
+    
     notify_email : [ 'bob@test.com' ], //list of emails to notify.
     execute : [{'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 29, 'payload': 1 }] // update node id 1, sensor id 1, of type 29, turn it on. 
   };
   
   //not working
   mqtt_client.publish("/zc/" + serial_number + "/alarm/", JSON.stringify(test_alarm) );
+  mqtt_client.publish("/zc/" + serial_number + "/alarm/", 'done' );
 }
 
 // publish our nodes.
@@ -369,15 +373,25 @@ function publish_timers(){
   };
   
   // not working. 
+  mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify(test_timer_schedule) );  
   mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify(test_timer_cron) );
-  mqtt_client.publish("/zc/" + serial_number + "/timer/", JSON.stringify(test_timer_schedule) );
+  mqtt_client.publish("/zc/" + serial_number + "/timer/", 'done' );
 }
 
 /*
 * My Sensors functions. 
 */
 
-// Encode a mysensors message returned as a string.
+/** @summary Create a String/MS packet. 
+ *  @desc Create a String/MS packet. 
+ *  @param {string} destination - the node that will recieve this message. 
+ *  @param {string} sensor - the sensor on that node.
+ *  @param {string} command - which internal type. See mymessage.js.
+ *  @param {string} acknowledge - ack. 0 or 1.
+ *  @param {string} type - see mymessage.js.
+ *  @param {string} payload -the payload of the message.
+ *  @returns {string} msg - a MySensors packet.
+ */
 function ms_encode(destination, sensor, command, acknowledge, type, payload) {
 	var msg = destination.toString(10) + ";" + sensor.toString(10) + ";" + command.toString(10) + ";" + acknowledge.toString(10) + ";" + type.toString(10) + ";";
 	if (command == 4) {
@@ -393,12 +407,16 @@ function ms_encode(destination, sensor, command, acknowledge, type, payload) {
 	return msg.toString();
 }
 
-// Send a message to the gateway. Do i really need this?
+/** Send a MySensors packet over the serial port. .  
+ * @param {string} _msg - The MS Packet.
+*/
 function ms_write_msg(_msg){
   port.write(_msg);
 }
 
-// Send a config to the sensors. (Imperial or Metric.)
+/** Send the config to a sensor.  
+ * @param {number} _nodeid - The id to send the config too.
+*/
 function ms_sendconfig(_nodeid){
   // Imperial for now.
   var payload = "I";
@@ -412,7 +430,9 @@ function ms_sendconfig(_nodeid){
   ms_write_msg(message);
 }
 
-// Send time to _nodeid
+/** Send the time to a sensor.  
+ * @param {number} _nodeid - The id to send the time too.
+*/
 function ms_sendtime(_nodeid){
   // I don't think this is supposed to be in miliseconds.
   var payload = Date.now();
@@ -427,8 +447,9 @@ function ms_sendtime(_nodeid){
   ms_write_msg(message);
 }
 
-// Callback. Decide what do do with the mysensors packet. 
-// I call this the 'swich statement from hell'
+/** A proper mysensors packet has been recieved.  
+ * @param {object} _data - a mysensors packet.
+*/
 function packet_recieved(_data){
   // Split the raw data by semicolon.
   var packet = _data.toString().trim().split(";");
@@ -587,16 +608,15 @@ function packet_recieved(_data){
       break;
   }
 }
-/*
-* Kick off the rest of the program. 
-*/
+
+/** This happens whenever the app starts. */
 function init_program(){
   start_node_checker();
   start_alarm_checker();
   start_timer_checker();
 }
 
-// Successful connection to mqtt. 
+/** This happens when this program makes a successful connection to the MQTT broker. */ 
 mqtt_client.on('connect', () => {  
   logUtils.mqttlog('Connected to mqtt.');
   // Subscribe to our serial number. 
@@ -621,7 +641,6 @@ port.on('data', function (data) {
   }
 });
 
-// When mqtt gets a message.
 mqtt_client.on('message', function (topic, message) {
   switch (topic){
     
@@ -629,6 +648,7 @@ mqtt_client.on('message', function (topic, message) {
     case '/zc/' + serial_number + "/":
       logUtils.mqttlog('new connection');
       publish_all();
+      mqtt_client.publish('/zc/' + serial_number + "/get_current_inclusion_mode/",'get');
       break;
    
    // This is just a test that i use for stuff.    
@@ -643,6 +663,10 @@ mqtt_client.on('message', function (topic, message) {
     case '/zc/' + serial_number + "/set_inclusion_mode/":
       toggle_inclusion_mode(1);
       mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'on');
+      
+      setTimeout(function(){ 
+        mqtt_client.publish('/zc/' + serial_number + "/stop_inclusion_mode/", '');
+      }, 3000);
       break;
     
     // end inclusion mode. 
@@ -664,7 +688,7 @@ mqtt_client.on('message', function (topic, message) {
     * SENSOR STUFFS.
     */
       
-    // Update a variable.
+    /** Update a sensor variable. */
     case '/zc/' + serial_number + '/update_sensor_variable/':
       msg_json = JSON.parse(message.toString());
       msg = ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
@@ -683,7 +707,7 @@ mqtt_client.on('message', function (topic, message) {
     // Create a new timer. 
     case '/zc/' + serial_number + '/create_timer/':
       msg_json = JSON.parse(message.toString());
-      save_timer();
+      save_timer( msg_json );
       break;
 
     // Publish timers.

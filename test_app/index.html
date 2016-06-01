@@ -12,8 +12,9 @@
     var wsport = 3002 // port for above
     var serial_number = 'test_serial' 
     var node_list = {};
-    alarms_list = {};
-    timers_list = {};
+    var alarms_list = {};
+    var timers_list = {};
+    var inclusion_mode;
 
     var client = new Paho.MQTT.Client(wsbroker, wsport,
         "testApp");
@@ -26,18 +27,15 @@
       //console.log(message.destinationName, ' -- ', message.payloadString);
         switch(message.destinationName){
         case '/zc/' + "test_serial" + '/node/':
+          raw_msg = message.payloadString;
+          if( raw_msg == 'done'){
+            console.log(JSON.stringify(node_list,null,8)); 
+          } else{
             console.log("new nodes published, fetching...");
-            // make a json of the json. 
-            raw_msg = message.payloadString;
             var node = JSON.parse(raw_msg);
-            //window.alert(raw_msg);
-            //add it to our list. 
-            node_list[node._id] = node;
-            console.log(JSON.stringify(node_list,null,8));  
+            node_list["node " + node._id] = node;
+          }       
         break;
-        case '/zc/' + serial_number + "/titties/":
-          console.log(message.payloadString);
-          break;
         
         case '/zc/' + serial_number + '/debug/raw_ms_msg':
             //console.log(message.payloadString);
@@ -45,28 +43,42 @@
            
         // placeholders.    
         case '/zc/' + "test_serial" + '/alarm/':
-            console.log("new alarms published, fetching...");
             // make a json of the json. 
             raw_msg = message.payloadString;
-            var alarm = JSON.parse(raw_msg);
-            
-            //add it to our list. 
-            alarms_list["alarm"+alarm._id] = alarm;
-            console.log(JSON.stringify(alarms_list,null,8));      
+            if( raw_msg == 'done'){
+              console.log(JSON.stringify(alarms_list,null,8));
+            } else {
+              console.log("new alarms published, fetching...");
+
+              var alarm = JSON.parse(raw_msg);
+              //add it to our list. 
+              alarms_list["alarm "+alarm._id] = alarm;
+            } 
         break;
         
         case '/zc/' + "test_serial" + '/timer/':
-            console.log("new timers published, fetching..");
-            // make a json of the json. 
             raw_msg = message.payloadString;
-            var timer = JSON.parse(raw_msg);
+            if( raw_msg == 'done' ){
+              console.log(JSON.stringify(timers_list,null,8)); 
+            }
+            else{        
+              console.log("new timers published, fetching..");
+              // make a json of the json. 
+              var timer = JSON.parse(raw_msg);
             
-            //add it to our list. 
-            timers_list["timer"+timer._id] = timer;
-            console.log(JSON.stringify(timers_list,null,8));  
+              //add it to our list. 
+              timers_list["timer "+timer._id] = timer; 
+            }
         break;
-    }
-      
+        
+        case '/zc/' + serial_number + '/current_inclusion_mode/':
+          raw_msg = message.payloadString;
+          if ( inclusion_mode != raw_msg ){
+            inclusion_mode = raw_msg;
+            console.log('INCLUSION MODE: ' + inclusion_mode );
+          }
+        break;
+    } 
     };
 
     var options = {
@@ -75,7 +87,9 @@
         console.log("mqtt connected");
         // Connection succeeded; subscribe to our topic, you can add multile lines of these
         client.subscribe('/zc/test_serial/#', {qos: 1});
-  
+        initmessage = new Paho.MQTT.Message("connect");
+        initmessage.destinationName = "/zc/test_serial/";
+        client.send(initmessage);
       },
       onFailure: function (message) {
         console.log("Connection failed: " + message.errorMessage);
@@ -84,12 +98,6 @@
 
   function init() {
       client.connect(options);
-  }
-  
-  function controller_connect(){
-        message = new Paho.MQTT.Message("get");
-        message.destinationName = "/zc/test_serial/";
-        client.send(message);
   }
   
   function get_nodes(){
@@ -156,12 +164,18 @@
     message.destinationName = "/zc/test_serial/create_alarm/";
     client.send(message);
   }
+  
+  function toggle_include(){
+    var msg = 'set';
+    var message = new Paho.MQTT.Message( msg ) ;
+    message.destinationName = '/zc/' + serial_number + "/set_inclusion_mode/";
+    client.send(message);
+  }
 
 </script>
   </head>
   <body onload="init();">
         <button onclick=" init();" > connect to mqtt</button>
-        <button onclick=" controller_connect(); ">connect</button>
         <button onclick=" get_nodes(); ">Get Nodes</button>
         <button onclick=" get_alarms(); ">Get Alarms</button>
         <button onclick=" get_timers(); ">Get Timers</button>
@@ -172,6 +186,7 @@
         <button onclick=" stop(); ">stop</button>
         
         <button onclick=" create_alarm(); ">create_alarm</button>
+        <button onclick=" toggle_include(); ">turn inclusion mode on.</button>
   </body>
 
 </html>
