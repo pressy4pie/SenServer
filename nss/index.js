@@ -659,14 +659,14 @@ mqtt_client.on('message', function (topic, message) {
     * INCLUSION MODE STUFFS.
     */
     
-    // User is able to start and end inclusion_mode with the app. 
+    /** Turn Inclusion mode on for 30 seconds. */   
     case '/zc/' + serial_number + "/set_inclusion_mode/":
       toggle_inclusion_mode(1);
       mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'on');
       
       setTimeout(function(){ 
         mqtt_client.publish('/zc/' + serial_number + "/stop_inclusion_mode/", '');
-      }, 3000);
+      }, 30000);
       break;
     
     // end inclusion mode. 
