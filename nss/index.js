@@ -200,9 +200,15 @@ mqtt_client.on('message', function (topic, message) {
       
     /** Update a sensor variable. */
     case '/zc/' + serial_number + '/update_sensor_variable/':
-      msg_json = JSON.parse(message.toString());
-      msg = myspacket.ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
+      var msg_json = JSON.parse(message.toString());
+      var msg = myspacket.ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
       myspacket.ms_write_msg(msg);
+      break; 
+    
+    /** update display name. Expects a JSON object. */
+    case '/zc/' + serial_number + '/update_node_display_name/':
+      var msg_json = JSON.parse(message.toString());
+      dbutils.update_node_display_name(msg_json['node_id'], msg_json['diaplayName']);
       break; 
 
     // Publish all the nodes. 
@@ -217,7 +223,7 @@ mqtt_client.on('message', function (topic, message) {
     // Create a new timer. 
     case '/zc/' + serial_number + '/create_timer/':
       msg_json = JSON.parse(message.toString());
-      dbUtils.save_timer( msg_json );
+      dbutils.save_timer( msg_json );
       break;
 
     // Publish timers.

@@ -38,7 +38,9 @@ function save_alarm( alarm_to_save ){
   // i quit.
 }
 
-// This is usually a callback from other save_xx whatever. 
+/** Save a timestamp and make it apear alive.
+ *  @param {number} _nodeid - the node on which this sensor resides.  
+ */
 function save_timestamp(_nodeid){
   // Save the last seen time.
   nodeCollection.update( {'_id': _nodeid}, { $set: {'last_seen' : Date.now() } } );
@@ -93,29 +95,46 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   mqttUtils.publish_nodes();
 }
 
-// Save the node version in the db.
+/** Save a node battery leve.
+ *  @param {number} _nodeid - The node whose name to update.
+ *  @param {string} version - The node version.
+ *  We don't really use this to be honest. I guess we could use it for hardware revisions.  
+ */ 
 function save_node_version(_nodeid,version){
   nodeCollection.update( {'_id': _nodeid}, { $set: {'node_version' : version} } );
   save_timestamp(_nodeid);
 }
 
-// save library version in db.
+/** Save a node battery leve.
+ *  @param {number} _nodeid - The node whose name to update.
+ *  @param {string} libversion - The library version. 
+ */ 
 function save_node_lib_version(_nodeid,libversion){
   nodeCollection.update( {'_id': _nodeid}, { $set: {'lib_version' : libversion} } );
   save_timestamp(_nodeid);
 }
 
-// Save teh node battery level in db. 
+/** Save a node battery leve.
+ *  @param {number} _nodeid - The node whose name to update.
+ *  @param {number} bat_level - Percentage of available battery life. 
+ */ 
 function save_node_battery_level(_nodeid,bat_level){
-  nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_level' : parseInt(bat_level)} } );
-  save_timestamp(_nodeid);
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_level' : parseInt(bat_level)} });
+    save_timestamp(_nodeid);
+  });
 }
 
-// save node name in db. 
+/** Save a node name. Called on node init (presentation)
+ *  @param {number} _nodeid - the node whose name to update.
+ *  @param {string} node_name - The name of the node. 
+ */ 
 function save_node_name(_nodeid,node_name){
-  logUtils.dblog('saveing node name')
-  nodeCollection.update( {'_id': _nodeid}, { $set: {'node_name' : node_name} } );
-  save_timestamp(_nodeid);
+  logUtils.dblog('Saveing node name');
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'node_name' : node_name} });
+    save_timestamp(_nodeid);
+  });
 }
 
 /** Rename a node. Updates display_name 
@@ -124,7 +143,9 @@ function save_node_name(_nodeid,node_name){
  *  We can't just use node_name because it gets updated on node reboot, (presentation.)
 */
 function update_node_display_name(_nodeid,newName){
-  /** @TODO */
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'display_name' : newName} });
+  });
 }
 
 // Give a new node an ID. 
