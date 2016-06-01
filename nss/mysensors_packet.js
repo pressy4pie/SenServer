@@ -113,10 +113,7 @@ function packet_recieved(_data){
       break;
       
     case C_INTERNAL:
-    // Catch that bug in motor controllers.
-    //if (childsensorid == "0" || nodeid == "0") break;
       switch(parseInt(subtype)){
-        
         // The sensors battery has been updated.                  
         case I_BATTERY_LEVEL:
           dbutils.save_node_battery_level(nodeid,payload);
@@ -170,7 +167,7 @@ function packet_recieved(_data){
           logUtils.mslog('heartbeat: ' + _data);
           break;
         case I_HEARTBEAT_RESPONSE:
-          logUtils.mslog('heartbeat Response: ' + _data);
+          dbutils.save_timestamp(nodeid);
           break;
         
         // I dont think we use the rest of these in tis situation.   
