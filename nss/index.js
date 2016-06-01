@@ -27,10 +27,21 @@ var fs = require('fs');
 // Set inclusion mode to false in the start so we don't get undefined errors.
 global.inclusion_mode = false;
 
+/** Check for internet. I hope this doesn't add too mcuh time to init. */
 var net_connection = function( ){
-  // Do we have internet? 
-  // This obviously does not work yet. 
-  return true;
+  var options = {
+    host: 'ekg.westus.cloudapp.azure.com',
+    port: 80,
+    path: '/index.html'
+  };
+
+  http.get(options, function(res) {
+    if (res.statusCode == 200) {
+      return true;
+    }
+  }).on('error', function(e) {
+    return false;
+  });
 }
 
 // Integrety check because I always to set env variables before starting. 
