@@ -79,6 +79,12 @@
             document.getElementById("include_box").value = "INCLUSION MODE: " +inclusion_mode;
           }
         break;
+        case "/zc/" + serial_number + "/all/":
+          raw_msg = message.payloadString;
+          if(raw_msg == 'all_done'){
+            //get_all();
+          }
+        break; 
     } 
     };
 
