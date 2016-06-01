@@ -127,8 +127,8 @@ function sendNextAvailableSensorId() {
     nodeCollection.save(empty_node);
     
     // send the id to the node itself. 
-    var msg = ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
-    ms_write_msg(msg);
+    var msg = myspacket.ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
+    myspacket.ms_write_msg(msg);
     save_timestamp(nid);
   } );
 }
@@ -144,4 +144,5 @@ module.exports = {
     save_node_lib_version : save_node_lib_version,
     save_node_battery_level : save_node_battery_level,
     save_node_name : save_node_name,
+    sendNextAvailableSensorId : sendNextAvailableSensorId
 }

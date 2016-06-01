@@ -116,7 +116,7 @@ MongoClient.connect(dburl, function(err, db) {
 });
 
 // Initialize the serial port. 
-var port = new SerialPort(serial_port, {
+global.port = new SerialPort(serial_port, {
   baudrate: 115200,
   parser: serialport.parsers.readline('\n')
 }); 
