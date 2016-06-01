@@ -75,7 +75,6 @@ if( environment == 'prod'  ){
 else if ( environment == 'dev' ){
   // Something that should be got from our non existant configuration file. 
   global.node_dead_milis = 900000; //15 minutes
-  
   global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
   global.local_mqtt_server = "localhost:3003";
   global.serial_port = '/dev/ttyACM1';
@@ -154,94 +153,100 @@ port.on('data', function (data) {
 
 mqtt_client.on('message', function (topic, message) {
   switch (topic){
-    // If its a plain subscription to the base level, publish all nodes,alarms,timers etc.
+    /** When an app connects it should publish something to here. 
+     *  That something can be anything. a message that says 'connect' is easy to find in logs. */
     case '/zc/' + serial_number + "/":
       logUtils.mqttlog('new connection');
       mqttUtils.publish_all();
       mqtt_client.publish('/zc/' + serial_number + "/get_current_inclusion_mode/",'get');
       break;
-   
-   // This is just a test that i use for stuff.    
-    case '/zc/' + serial_number + "/test/":
-      break;
-      
-    /*
-    * INCLUSION MODE STUFFS.
-    */
+
+      /** INCLUSION MODE STUFF */
     
-    /** Turn Inclusion mode on for 30 seconds. */   
+    /** Turn Inclusion mode on for 30 seconds. 
+     *  The message can be anything, but 'set' is easy to find in the logs. */   
     case '/zc/' + serial_number + "/set_inclusion_mode/":
       myspacket.toggle_inclusion_mode(1);
       mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'on');
-      
+      /** Turn in off in 30000. that could probably be a config paramater. */
       setTimeout(function(){ 
         mqtt_client.publish('/zc/' + serial_number + "/stop_inclusion_mode/", '');
       }, 30000);
       break;
     
-    // end inclusion mode. 
+    /** Force inclusion mode to stop.  
+     *  Again the message could be anything. 'set' or something is perfered.  */ 
     case '/zc/' + serial_number + "/stop_inclusion_mode/":
       myspacket.toggle_inclusion_mode(0);
       mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
       break; 
       
+    /** Publishes the current inclustion mode 
+     *  Message can be anything again. 'get' is nice. */
     case '/zc/' + serial_number + "/get_current_inclusion_mode/":
       if( inclusion_mode == true){
         mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'on');
       } else {
         mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
       }
+      break;
+           
+      /** SENSOR STUFF */
       
-      break;     
- 
-    /*
-    * SENSOR STUFFS.
-    */
-      
-    /** Update a sensor variable. */
+    /** Update a sensor variable. 
+     *  Expects an object: {'node_id': NUMBER, 'sensor_id' : NUMBER, 'msg_cmd': NUMBER, 'msg_type' : NUMBER, 'payload': NUMBER } */
     case '/zc/' + serial_number + '/update_sensor_variable/':
       var msg_json = JSON.parse(message.toString());
       var msg = myspacket.ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
       myspacket.ms_write_msg(msg);
       break; 
     
-    /** update display name. Expects a JSON object. */
+    /** update display name. Expects a JSON object. 
+     *  Expects an object: {'node_id' : NUMBER, 'displayName' : STRING} */
     case '/zc/' + serial_number + '/update_node_display_name/':
       var msg_json = JSON.parse(message.toString());
       dbutils.update_node_display_name(msg_json['node_id'], msg_json['diaplayName']);
       break; 
-
-    // Publish all the nodes. 
+      
+    /** Update the number of miliseconds before a node is declared dead. 
+     *  Expects an object: {'node_id': NUMBER, 'node_dead_milis': NUMBER} */
+    case '/zc/' + serial_number + '/update_node_dead_milis/':
+      var msg_json = JSON.parse(message.toString());
+      dbutils.update_node_display_name(msg_json['node_id'], msg_json['node_dead_milis']);
+      break;
+      
+    /** Publishes all the nodes */
     case '/zc/' + serial_number + '/get_nodes/':
       mqttUtils.publish_nodes();
-      break;      
+      break;
       
-    /*
-    * TIMER STUFFS.
-    */ 
+      /** TIMER STUFF */
     
-    // Create a new timer. 
+    /** Create a new timer.
+     *  expects an object: {}\
+     * SUBJECT TO SOME CHANGE */ 
     case '/zc/' + serial_number + '/create_timer/':
       msg_json = JSON.parse(message.toString());
       dbutils.save_timer( msg_json );
       break;
 
-    // Publish timers.
+    /** Publish all the timers. 
+     *  Message can be anythin. 'get' */
     case '/zc/' + serial_number + '/get_timers/':
       mqttUtils.publish_timers();
       break;
       
-    /*
-    * ALARM STUFFS.
-    */
+      /** TIMER STUFF */
     
-    // Create an alarm. 
+    /** Create a new alarm.
+     *  Expects an Object */
     case '/zc/' + serial_number + '/create_alarm/':
       msg_json = JSON.parse(message.toString());
       dbutils.save_alarm( msg_json );
       break;
 
-    // Publish alarms. 
+    /** Publish all the alarms.
+     *  Message can be anythin. 'get' */
     case '/zc/' + serial_number + '/get_alarms/':
       mqttUtils.publish_alarms();
       break;

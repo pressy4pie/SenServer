@@ -45,20 +45,15 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-logUtils.dblog('Saving new sensor on node: ' , _nodeid);
-
-// Build the json thats going to be used for the document and save it.
-nodeCursor = sensorCollection.find( {'node_id' : _nodeid} );
-  nodeCursor.each(function (err, doc) {
-    if (err) {
-      logUtils.err(err);
-      return;
-    }else if (doc == null){
-      logUtils.dblog('Null sensor');
-      // don't know whhy i pick up a null node, but oh well.
-    }
-    newSensor = { '_id': _nodeid + "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_diaplay_name' : null, 'sensor_type': sensor_subtype,'variables':{} };
-  }); 
+  logUtils.dblog('Saving new sensor on node: ' , _nodeid);
+  newSensor = { '_id': _nodeid + "-" + sensor_id, 
+              'node_id':_nodeid, 
+              'sensor_id': sensor_id, 
+              'sensor_name': sensor_name, 
+              'sensor_diaplay_name' : null, 
+              'sensor_type': sensor_subtype,
+              /**'variables':{} */ };
+  sensorCollection.save(newSensor);
 }
 
 /** Rename a sensor name for user readability.
@@ -73,21 +68,6 @@ function update_sensor_display_name(_nodeid, sensor_id, new_name){
 
 // Save the sensor state to teh db 
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
-  // This will be our document to update as saved above.
-  thisSensorCursor = sensorCollection.find( { _id: _nodeid + "-" + sensor_id} );
-  thisSensorCursor.each(function (err, doc){
-    if (err){logUtils.err(err);}
-    else if (doc == null){}
-    else {
-      if(doc.variables == null){
-        logUtils.dblog('No variables yet.');
-      }
-    }
-  });
-
-  // Save timestamp, and update the state in mqtt. 
-  save_timestamp(_nodeid);
-  //mqttUtils.publish_nodes();
 }
 
 /** Save a node battery leve.
@@ -150,7 +130,7 @@ function update_node_display_name(_nodeid,newName){
 // Give a new node an ID. 
 function sendNextAvailableSensorId() {
   //Start with 1 for good measure. 
-  num_nodes = nodeCollection.count();
+  num_nodes = nodeCollection.find( {'last_seen' : {$gt: 0} } ).count();
   num_nodes.then(function(value){      
     nid =  (parseInt(value) + 1 );     
     //Build a blank node.
@@ -163,7 +143,7 @@ function sendNextAvailableSensorId() {
                       'lib_version' : null,
                       'last_seen' : Date.now(), 
                       'alive' : 'true',
-                      'sensors':{}
+                      //'sensors':{}
                     };
     nodeCollection.save(empty_node);
     

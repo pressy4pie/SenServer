@@ -133,6 +133,7 @@ function packet_recieved(_data){
         // Trigger inclusion_mode for a while
         case I_INCLUSION_MODE:
           toggle_inclusion_mode(parseInt(payload.trim()));
+          mqtt_client.publish('/zc/' + serial_number + "/get_current_inclusion_mode/",'get');
           break;
           
         // Send the config to the node.   
@@ -154,6 +155,8 @@ function packet_recieved(_data){
         case I_SKETCH_VERSION:
           if (nodeid == "0") break;
           dbutils.save_node_lib_version(nodeid,payload);
+          // This is the last thing a node presents, so it's safe to publish nodes here.
+          mqttUtils.publish_nodes();
           break;
           
         // The gateway is ready. 

@@ -10,13 +10,16 @@ function publish_all(){
 function publish_nodes(){
   logUtils.mqttlog('Publishing nodes.');
   // Get cursor for nodes with id greater than zero. 
-  var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} );
+  var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} ); // All the nodes with an id greater than 0
   nodeCursor.each(function (err, doc) {
+    var node_to_publish = new Object;
     if (err) {
       logUtils.err(err);
-    } else if ( doc!= null) {
-      var node_to_publish = doc;
-      mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) ); 
+    } else if ( doc != null) { // If the document is not null.
+      node_to_publish = doc;
+      //console.log('creating publish for node: ' + node_to_publish['_id']);
+      //sensor_cursor = sensorCollection.find( {_id: node_to_publish['_id'] } );
+      mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
     } 
     else { // after going thru all the nodes, we get a null one. So use it to publish the done signal. 
       mqtt_client.publish("/zc/" + serial_number + "/node/", 'done' );

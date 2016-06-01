@@ -11,9 +11,9 @@
     var wsbroker = "ekg.westus.cloudapp.azure.com";  //mqtt websocket enabled broker
     var wsport = 3002 // port for above
     var serial_number = 'test_serial' 
-    var node_list = {};
-    var alarms_list = {};
-    var timers_list = {};
+    var node_list = new Object;
+    var alarms_list = new Object;
+    var timers_list = new Object;
     var inclusion_mode;
 
     var client = new Paho.MQTT.Client(wsbroker, wsport,
@@ -29,7 +29,7 @@
         case '/zc/' + "test_serial" + '/node/':
           raw_msg = message.payloadString;
           if( raw_msg == 'done'){
-            console.log(JSON.stringify(node_list,null,8)); 
+            //console.log(JSON.stringify(node_list,null,8)); 
           } else{
             console.log("new nodes published, fetching...");
             var node = JSON.parse(raw_msg);
@@ -46,7 +46,7 @@
             // make a json of the json. 
             raw_msg = message.payloadString;
             if( raw_msg == 'done'){
-              console.log(JSON.stringify(alarms_list,null,8));
+              //console.log(JSON.stringify(alarms_list,null,8));
             } else {
               console.log("new alarms published, fetching...");
 
@@ -59,10 +59,10 @@
         case '/zc/' + "test_serial" + '/timer/':
             raw_msg = message.payloadString;
             if( raw_msg == 'done' ){
-              console.log(JSON.stringify(timers_list,null,8)); 
+             // console.log(JSON.stringify(timers_list,null,8)); 
             }
             else{        
-              console.log("new timers published, fetching..");
+              console.log("new timers published, fetching...");
               // make a json of the json. 
               var timer = JSON.parse(raw_msg);
             
@@ -76,6 +76,7 @@
           if ( inclusion_mode != raw_msg ){
             inclusion_mode = raw_msg;
             console.log('INCLUSION MODE: ' + inclusion_mode );
+            document.getElementById("include_box").value = "INCLUSION MODE: " +inclusion_mode;
           }
         break;
     } 
@@ -100,25 +101,44 @@
       client.connect(options);
   }
   
+  function get_all(){
+    get_nodes();
+    get_alarms();
+    get_timers();
+  }
+  
   function get_nodes(){
         message = new Paho.MQTT.Message("get");
         message.destinationName = "/zc/test_serial/get_nodes/";
         client.send(message);
-        setTimeout(function(){alert(JSON.stringify(node_list,null,8))}, 100);
+        if(Object.keys(node_list).length === 0){
+          console.log('No Nodes');
+        } else {
+          //alert(JSON.stringify(node_list,null,8));
+          document.getElementById("nodes_box").value = JSON.stringify(node_list,null,8);
+        }
   }
   
   function get_alarms(){
         message = new Paho.MQTT.Message("get");
         message.destinationName = "/zc/test_serial/get_alarms/";
         client.send(message);
-        alert(JSON.stringify(alarms_list,null,8));
+        if(Object.keys(alarms_list).length === 0){
+          console.log('No Alarms');
+        } else {
+          document.getElementById("alarms_box").value = JSON.stringify(alarms_list,null,8);
+        }
   }
   
   function get_timers(){
         message = new Paho.MQTT.Message("get");
         message.destinationName = "/zc/test_serial/get_timers/";
         client.send(message);
-        alert(JSON.stringify(timers_list,null,8));
+        if(Object.keys(timers_list).length === 0){
+          console.log('No timers');
+        } else {
+          document.getElementById("timers_box").value = JSON.stringify(timers_list,null,8);
+        }
   }
   
   function up(){
@@ -143,7 +163,7 @@
   }
   
   function update_node_one_name(){
-    var msg = {'node_id': 1, 'diaplayName': 'TEST NAME!!11!!!' };
+    var msg = {'node_id': 2, 'diaplayName': 'TEST NAME!!11!!!' };
     message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
     message.destinationName = "/zc/test_serial/update_node_display_name/";
     client.send(message);
@@ -182,20 +202,40 @@
 </script>
   </head>
   <body onload="init();">
-        <button onclick=" init();" > connect to mqtt</button>
-        <button onclick=" get_nodes(); ">Get Nodes</button>
-        <button onclick=" get_alarms(); ">Get Alarms</button>
-        <button onclick=" get_timers(); ">Get Timers</button>
-        
-        
+    <div id="nodes">
+      <h3>NODES</h3><button onclick=" get_nodes(); ">Get Nodes</button> <br>
+      <textarea rows="20" cols="50" id="nodes_box">
+      </textarea>
+    </div>
+    
+    <div id="alarms">
+      <h3>ALARMS</h3> <button onclick=" get_alarms(); ">Get Alarms</button> <br>
+      <textarea rows="5" cols="50" id="alarms_box">
+      </textarea><br>
+      <button onclick=" create_alarm(); ">Create Timer</button>
+      <button onclick=" create_alarm(); ">Delete Timer</button>
+    </div>
+    
+    <div id="timers">
+      <h3>TIMERS</h3> <button onclick=" get_timers(); ">Get Timers</button> <br>
+      <textarea rows="5" cols="50" id="timers_box">
+      </textarea><br>
+      <button onclick=" create_alarm(); ">Create Timer</button>
+      <button onclick=" create_alarm(); ">Delete Timer</button>
+    </div>
+    
+    <div id="functions">
+      <h4>EXTRA STUFF</h4>
+      <button onclick=" toggle_include(); ">turn inclusion mode on.</button> <input type="text" id="include_box" value="off"> <br>
+      <button onclick=" get_all() ">Populate Info</button>
+    </div>  
+
+        <br>
+        <br>
         <button onclick=" up(); ">up on sensor 1</button>
         <button onclick=" down(); ">down on sensor 1</button>
         <button onclick=" stop(); ">stop on sensor 1</button>
-        <button onclick=" update_node_one_name(); ">update name on sensor 1</button>
-        
-        <button onclick=" create_alarm(); ">create_alarm</button>
-        <button onclick=" toggle_include(); ">turn inclusion mode on.</button>
-        
+        <button onclick=" update_node_one_name(); ">update name on sensor 1</button>      
   </body>
 
 </html>
