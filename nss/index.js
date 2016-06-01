@@ -201,8 +201,8 @@ mqtt_client.on('message', function (topic, message) {
     /** Update a sensor variable. */
     case '/zc/' + serial_number + '/update_sensor_variable/':
       msg_json = JSON.parse(message.toString());
-      msg = ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
-      ms_write_msg(msg);
+      msg = myspacket.ms_encode(msg_json['node_id'], msg_json['sensor_id'], msg_json['msg_cmd'], 0, msg_json['msg_type'], msg_json['payload'] );
+      myspacket.ms_write_msg(msg);
       break; 
 
     // Publish all the nodes. 

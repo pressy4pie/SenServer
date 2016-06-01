@@ -60,8 +60,18 @@ nodeCursor = sensorCollection.find( {'node_id' : _nodeid} );
       logUtils.dblog('Null sensor');
       // don't know whhy i pick up a null node, but oh well.
     }
-    newSensor = { '_id': _nodeid + "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_type': sensor_subtype,'variables':{} };
+    newSensor = { '_id': _nodeid + "-" + sensor_id, 'node_id':_nodeid, 'sensor_id': sensor_id, 'sensor_name': sensor_name, 'sensor_diaplay_name' : null, 'sensor_type': sensor_subtype,'variables':{} };
   }); 
+}
+
+/** Rename a sensor name for user readability.
+ *  Similarly to node name, the regular sensor name gets updated on presentation, so if we want a readable name we make a new feild.
+ *  @param {number} _nodeid - the node on which this sensor resides.
+ *  @param {number} sensor_id - the id on _nodeid whose name to update.
+ *  @param {string} new_name - the new name to store.
+ */
+function update_sensor_display_name(_nodeid, sensor_id, new_name){
+  /** @TODO */
 }
 
 // Save the sensor state to teh db 
@@ -108,6 +118,15 @@ function save_node_name(_nodeid,node_name){
   save_timestamp(_nodeid);
 }
 
+/** Rename a node. Updates display_name 
+ *  @param {number} _nodeid - the node whose name to update.
+ *  @param {string} newName - the new display name for that node. 
+ *  We can't just use node_name because it gets updated on node reboot, (presentation.)
+*/
+function update_node_display_name(_nodeid,newName){
+  /** @TODO */
+}
+
 // Give a new node an ID. 
 function sendNextAvailableSensorId() {
   //Start with 1 for good measure. 
@@ -116,6 +135,7 @@ function sendNextAvailableSensorId() {
     nid =  (parseInt(value) + 1 );     
     //Build a blank node.
     var empty_node = { '_id' : nid,
+                      'display_name':null,
                       'bat_level' : null,
                       'node_name' : null,
                       'node_version' : null,
@@ -140,9 +160,11 @@ module.exports = {
     save_timestamp : save_timestamp,
     save_sensor : save_sensor,
     save_sensor_value : save_sensor_value,
+    update_sensor_display_name : update_sensor_display_name,
     save_node_version : save_node_version,
     save_node_lib_version : save_node_lib_version,
     save_node_battery_level : save_node_battery_level,
     save_node_name : save_node_name,
+    update_node_display_name : update_node_display_name,
     sendNextAvailableSensorId : sendNextAvailableSensorId
 }
