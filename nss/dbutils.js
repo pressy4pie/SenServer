@@ -1,51 +1,46 @@
-/*
+/** 
 * DATABASE THINGS FOR MYSENSORS.
+* This file needs the most work L o L.
 */
 
-// Check if nodes are alive. Will probably rewrite this, not in a for loop.
+
+/** Check to see if nodes are alive. This will loop thru all of the nodes in the db.  */
 function check_node_alive(){
-  num_nodes = nodeCollection.count();
-  num_nodes.then(function(value){ 
-    for(var i=1; i <= parseInt(value); i++){
-    thisNode = nodeCollection.find( { _id: parseInt(i) }).toArray();
-    thisNode.then(function( node_to_check ){
-      // Create a string to work with. 
-      node_to_check_str = JSON.stringify(node_to_check);
-      // Get rid of the brackets. 
-      node_to_check_str = node_to_check_str.replace(/[\[\]']+/g,'');
-      
-      // Convert it back. Thanks mongodb.
-      var node_json = JSON.parse(node_to_check_str);
-      
-      // If node hasnt been seen in the node_dead_milis 
-      // I think this is the only math I've done in this entire program. 
-      if( (Date.now() - node_json.last_seen) > node_dead_milis && node_json.alive == true){
-        logUtils.mslog('node: '  + node_json._id + " is declared dead."); 
-        nodeCollection.update( {'_id' : parseInt(node_json._id)}, {$set: {'alive': false}} );
-        }
-      });
+  nodeCursor = nodeCollection.find().forEach(function (doc, err){
+    if(err){logUtils.errlog(err); throw err}
+    // Just for readability.
+    var node_json = doc;
+    /** hb_freq is a number in miliseconds, that defaults to 15 minutes. This will probably be user configurable. */
+    if( (Date.now() - node_json.last_seen) > node_json.hb_freq && node_json.alive == true){
+      logUtils.mslog('node: '  + node_json._id + " is declared dead."); 
+      last_seen = new Date(node_json.last_seen);
+      logUtils.mslog('last seen: ' + last_seen);
+      nodeCollection.update( {'_id' : parseInt(node_json._id)}, {$set: {'alive': false}} );
     }
   });
 }
 
 // Save a timer in the DB.
 function save_timer( timer_to_save ){  
-  // NO
+  /** @TODO */
 }
 
 // Save an alarm in the DB.
 function save_alarm( alarm_to_save ){  
-  // i quit.
+  /** @TODO */
 }
 
 /** Save a timestamp and make it apear alive.
  *  @param {number} _nodeid - the node on which this sensor resides.  
  */
 function save_timestamp(_nodeid){
-  // Save the last seen time.
-  nodeCollection.update( {'_id': _nodeid}, { $set: {'last_seen' : Date.now() } } );
-  // Obviously if we just updated time, we are alive lol.
-  nodeCollection.update( {'_id': _nodeid}, { $set: {'alive' : true } } );
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).forEach(function (doc){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'last_seen' : Date.now() } });
+    if(doc['alive'] == false){
+      logUtils.mslog('node ' + _nodeid + " is declared alive!!");
+      nodeCollection.update( {'_id': _nodeid}, { $set: {'alive' : true } } );
+    }
+  });
 }
 
 // Save the sensor in the DB
@@ -92,7 +87,7 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
 
   // Save timestamp, and update the state in mqtt. 
   save_timestamp(_nodeid);
-  mqttUtils.publish_nodes();
+  //mqttUtils.publish_nodes();
 }
 
 /** Save a node battery leve.
@@ -101,8 +96,10 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
  *  We don't really use this to be honest. I guess we could use it for hardware revisions.  
  */ 
 function save_node_version(_nodeid,version){
-  nodeCollection.update( {'_id': _nodeid}, { $set: {'node_version' : version} } );
-  save_timestamp(_nodeid);
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'node_version' : version} });
+    save_timestamp(_nodeid);
+  });
 }
 
 /** Save a node battery leve.
@@ -110,8 +107,10 @@ function save_node_version(_nodeid,version){
  *  @param {string} libversion - The library version. 
  */ 
 function save_node_lib_version(_nodeid,libversion){
-  nodeCollection.update( {'_id': _nodeid}, { $set: {'lib_version' : libversion} } );
-  save_timestamp(_nodeid);
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'lib_version' : libversion} });
+    save_timestamp(_nodeid);
+  });
 }
 
 /** Save a node battery leve.
@@ -157,6 +156,7 @@ function sendNextAvailableSensorId() {
     //Build a blank node.
     var empty_node = { '_id' : nid,
                       'display_name':null,
+                      'hb_freq' : 900000, //default to 15 minutes.
                       'bat_level' : null,
                       'node_name' : null,
                       'node_version' : null,
