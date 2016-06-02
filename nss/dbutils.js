@@ -51,7 +51,7 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
               'node_id':_nodeid, 
               'sensor_id': sensor_id, 
               'sensor_name': sensor_name, 
-              'sensor_display_name' : null, 
+              'sensor_display_name' : sensor_name, 
               'sensor_type': sensor_subtype,
              };
       sensorCollection.save(newSensor);
@@ -136,6 +136,10 @@ function save_node_name(_nodeid,node_name){
   logUtils.dblog('Saveing node name');
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'node_name' : node_name} });
+    if(results[0]['display_name'] == null){
+      nodeCollection.update( {'_id': _nodeid}, { $set: {'display_name' : node_name} });
+    }
+    
     save_timestamp(_nodeid);
   });
 }
