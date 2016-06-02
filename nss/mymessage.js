@@ -162,3 +162,5 @@ const   P_FLOAT32=7;
 
 const BROADCAST_ADDRESS = 255;
 const NODE_SENSOR_ID = 255;
+const YES_ACK = 1;
+const NO_ACK = 0;

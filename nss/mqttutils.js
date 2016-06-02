@@ -30,7 +30,7 @@ function publish_nodes(){
       mqtt_client.publish("/zc/" + serial_number + "/node/", 'done' );
     }
   });
-}
+} 
 
 // publish our alarms.
 function publish_alarms(){

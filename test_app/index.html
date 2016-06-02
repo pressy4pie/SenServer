@@ -192,6 +192,13 @@
     }
   }
   
+  function reboot_node_one(){
+    var msg = {'node_id': 3};
+    message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
+    message.destinationName = "/zc/test_serial/reboot_node/";
+    client.send(message);
+  }
+  
   function create_alarm(){  
     var alarm_msg =  {
       name : 'test alarm',
@@ -254,10 +261,12 @@
       <h4>Node 1 Stuff.</h4>
       <button onclick=" up(); ">up on sensor 1</button>
       <button onclick=" down(); ">down on sensor 1</button>
-      <button onclick=" stop(); ">stop on sensor 1</button><br>
+      <button onclick=" stop(); ">stop on sensor 1</button>
+      <button onclick=" reboot_node_one(); ">Reboot node 1</button><br>
       <input type="text" id="nodeonename" value=""> <button onclick=" update_node_one_name(); ">update name on node 1</button><br><br>
       <input type="text" id="node_one_sensor_one_name" value=""> <button onclick=" update_node_one_sensor_one_name(); ">update name on node 1 sensor 1</button> 
       <input type="text" id="node_one_sensor_one_name" value=""> <button onclick=" update_node_one_sensor_one_name(); ">update name on node 1 sensor 1</button> 
+      
       <br><br>
       
       <button onclick=" toggle_include(); ">turn inclusion mode on.</button> <input type="text" id="include_box" value="off"> <br>
