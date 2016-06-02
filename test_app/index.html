@@ -37,6 +37,7 @@
             console.log("new nodes published, fetching...");
             var node = JSON.parse(raw_msg);
             node_list["node " + node._id] = node;
+            document.getElementById("nodes_box").value = JSON.stringify(node_list,null,8);
           }       
         break;
         
@@ -56,6 +57,7 @@
               var alarm = JSON.parse(raw_msg);
               //add it to our list. 
               alarms_list["alarm "+alarm._id] = alarm;
+              document.getElementById("alarms_box").value = JSON.stringify(alarms_list,null,8);
             } 
         break;
         
@@ -71,6 +73,7 @@
             
               //add it to our list. 
               timers_list["timer "+timer._id] = timer; 
+              document.getElementById("timers_box").value = JSON.stringify(timers_list,null,8);
             }
         break;
         
@@ -82,12 +85,6 @@
             document.getElementById("include_box").value = "INCLUSION MODE: " +inclusion_mode;
           }
         break;
-        case "/zc/" + serial_number + "/all/":
-          raw_msg = message.payloadString;
-          if(raw_msg == 'all_done'){
-            //get_all();
-          }
-        break; 
     } 
     };
 
@@ -172,28 +169,32 @@
   }
   
   function update_node_one_name(){
-    var msg = {'node_id': 2, 'diaplayName': 'TEST NAME!!11!!!' };
-    message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
-    message.destinationName = "/zc/test_serial/update_node_display_name/";
-    client.send(message);
+    var nameValue = document.getElementById('nodeonename').value;
+    if (nameValue != null){
+      var msg = {'node_id': 1, 'diaplayName': nameValue };
+      message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
+      message.destinationName = "/zc/test_serial/update_node_display_name/";
+      client.send(message);
+      get_nodes();
+    }
   }
   
   function create_alarm(){  
     var alarm_msg =  {
-    name : 'test alarm',
-    enabled : true,
-    created : Date.now(),    
-    valid_from : Date.now(),
-    valid_thru : 1559336567,
-    delay : 30, // seconds
-    
-    node_to_check : 1, // the node  
-    sensor_to_check : 2, // the sensor on that node. 
-    condition : 'gt', // greater than
-    value : 13,
-    
-    notify_email : ['connor@emeraldkingdomgreenhouse.com'],
-    execute : [{'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 }]
+      name : 'test alarm',
+      enabled : true,
+      created : Date.now(),    
+      valid_from : Date.now(),
+      valid_thru : 1559336567,
+      delay : 30, // seconds
+      
+      node_to_check : 1, // the node  
+      sensor_to_check : 2, // the sensor on that node. 
+      condition : 'gt', // greater than
+      value : 13,
+      
+      notify_email : ['connor@emeraldkingdomgreenhouse.com'],
+      execute : [{'node_id': 1, 'sensor_id' : 1, 'msg_cmd': 1, 'msg_type' : 31, 'payload': 1 }]
     };
   
     message = new Paho.MQTT.Message( JSON.stringify(alarm_msg) ) ;
@@ -212,23 +213,23 @@
   </head>
   <body onload="init();">
 <link href="css/bootstrap.min.css" rel="stylesheet">
-    <div id="nodes">
-      <h3>NODES</h3><button onclick=" get_nodes(); ">Get Nodes</button> <br>
+    <div id="nodes" class="col-sm-4">
+      <h3>NODES</h3><button onclick=" get_nodes(); ">Force Get Nodes</button> <br>
       <textarea rows="20" cols="50" id="nodes_box">
       </textarea>
     </div>
     
-    <div id="alarms">
-      <h3>ALARMS</h3> <button onclick=" get_alarms(); ">Get Alarms</button> <br>
-      <textarea rows="5" cols="50" id="alarms_box">
+    <div id="alarms" class="col-sm-4">
+      <h3>ALARMS</h3> <button onclick=" get_alarms(); ">Force Get Alarms</button> <br>
+      <textarea rows="20" cols="50" id="alarms_box">
       </textarea><br>
       <button onclick=" create_alarm(); ">Create Timer</button>
       <button onclick=" create_alarm(); ">Delete Timer</button>
     </div>
     
-    <div id="timers">
-      <h3>TIMERS</h3> <button onclick=" get_timers(); ">Get Timers</button> <br>
-      <textarea rows="5" cols="50" id="timers_box">
+    <div id="timers" class="col-sm-4">
+      <h3>TIMERS</h3> <button onclick=" get_timers(); ">Force Get Timers</button> <br>
+      <textarea rows="20" cols="50" id="timers_box">
       </textarea><br>
       <button onclick=" create_alarm(); ">Create Timer</button>
       <button onclick=" create_alarm(); ">Delete Timer</button>
@@ -236,16 +237,19 @@
     
     <div id="functions">
       <h4>EXTRA STUFF</h4>
+     
+      <h4>Node 1 Stuff.</h4>
+      <button onclick=" up(); ">up on sensor 1</button>
+      <button onclick=" down(); ">down on sensor 1</button>
+      <button onclick=" stop(); ">stop on sensor 1</button><br>
+      <input type="text" id="nodeonename" value=""> <button onclick=" update_node_one_name(); ">update name on sensor 1</button> 
+      <br><br>
+      
       <button onclick=" toggle_include(); ">turn inclusion mode on.</button> <input type="text" id="include_box" value="off"> <br>
-      <button onclick=" get_all() ">Populate Info</button>
+      <button onclick=" get_all() ">Populate Info</button><br>
+      <br>
     </div>  
-
-        <br>
-        <br>
-        <button onclick=" up(); ">up on sensor 1</button>
-        <button onclick=" down(); ">down on sensor 1</button>
-        <button onclick=" stop(); ">stop on sensor 1</button>
-        <button onclick=" update_node_one_name(); ">update name on sensor 1</button>      
+             
   </body>
 
 </html>

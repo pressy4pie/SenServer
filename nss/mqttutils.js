@@ -17,11 +17,14 @@ function publish_nodes(){
     var node_to_publish = new Object;
     if (err) {
       logUtils.err(err);
-    } else if ( doc != null) { // If the document is not null.
+    } else if ( doc != null ) { // If the document is not null.
       node_to_publish = doc;
-      //console.log('creating publish for node: ' + node_to_publish['_id']);
-      //sensor_cursor = sensorCollection.find( {_id: node_to_publish['_id'] } );
-      mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
+      sensorCursor = sensorCollection.find( {'node_id': node_to_publish['_id'] } ).toArray(function (err, results){
+        node_to_publish['sensors'] = results;
+        if(node_to_publish['sensors'] != null){ // I don't know why this is here, but i refuse to remove it.
+          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
+        }
+      });
     } 
     else { // after going thru all the nodes, we get a null one. So use it to publish the done signal. 
       mqtt_client.publish("/zc/" + serial_number + "/node/", 'done' );

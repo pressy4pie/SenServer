@@ -3,7 +3,6 @@
 * This file needs the most work L o L.
 */
 
-
 /** Check to see if nodes are alive. This will loop thru all of the nodes in the db.  */
 function check_node_alive(){
   nodeCursor = nodeCollection.find().forEach(function (doc, err){
@@ -45,29 +44,54 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  logUtils.dblog('Saving new sensor on node: ' , _nodeid);
-  newSensor = { '_id': _nodeid + "-" + sensor_id, 
+  sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
+    if(results.length < 1){ //If this sensor doesnt exist already.
+      logUtils.dblog('Saving new sensor on node: ' + _nodeid);
+      newSensor = { '_id': _nodeid + "-" + sensor_id, 
               'node_id':_nodeid, 
               'sensor_id': sensor_id, 
               'sensor_name': sensor_name, 
               'sensor_diaplay_name' : null, 
               'sensor_type': sensor_subtype,
-              /**'variables':{} */ };
-  sensorCollection.save(newSensor);
+             };
+      sensorCollection.save(newSensor);
+    }
+  });
 }
 
 /** Rename a sensor name for user readability.
  *  Similarly to node name, the regular sensor name gets updated on presentation, so if we want a readable name we make a new feild.
  *  @param {number} _nodeid - the node on which this sensor resides.
  *  @param {number} sensor_id - the id on _nodeid whose name to update.
- *  @param {string} new_name - the new name to store.
- */
+ *  @param {string} new_name - the new name to store. */
 function update_sensor_display_name(_nodeid, sensor_id, new_name){
-  /** @TODO */
+  sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'sensor_diaplay_name' : newName} });
+  });
 }
 
-// Save the sensor state to teh db 
+/** Save the sensor to the database
+ *  @param {number} _nodeid - The node that holds the sensor.
+ *  @param {number} sensor_id - the sensor on that node.
+ *  @param {number} sensor_type - the variable type. See mymessage.js.
+ *  @param {string} payload - the payload to update. */
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
+  sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
+    if(results[0]['variables'] == null){ //if the variables object is empty.
+      results[0]['variables'] = {} // create the variables empty object
+      results[0]['variables'][parseInt(sensor_type)] = payload ; // variable type = value
+      sensorCollection.update({'_id' : _nodeid + "-" + sensor_id},results[0]  );
+    }
+    else if( results[0]['variables'][parseInt(sensor_type)] == null ){ // if variables object exists, but doesnt have that variable yet.
+      results[0]['variables'][parseInt(sensor_type)] = payload ; // variable type = value
+      sensorCollection.update({'_id' : _nodeid + "-" + sensor_id},results[0]  );
+    }
+    else if( results[0]['variables'][parseInt(sensor_type)] ){
+      results[0]['variables'][parseInt(sensor_type)] = payload ; // variable type = value
+      sensorCollection.update({'_id' : _nodeid + "-" + sensor_id},results[0]  );
+    }
+    mqttUtils.publish_nodes();
+  });
 }
 
 /** Save a node battery leve.
