@@ -4,6 +4,8 @@ function publish_all(){
   publish_nodes();
   publish_alarms();
   publish_timers();
+  /** I'll probably remove this l8r. */
+  mqtt_client.publish("/zc/" + serial_number + "/all/", 'all_done' );
 }
 
 // publish our nodes. 
