@@ -51,7 +51,7 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
               'node_id':_nodeid, 
               'sensor_id': sensor_id, 
               'sensor_name': sensor_name, 
-              'sensor_diaplay_name' : null, 
+              'sensor_display_name' : null, 
               'sensor_type': sensor_subtype,
              };
       sensorCollection.save(newSensor);
@@ -66,7 +66,7 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
  *  @param {string} new_name - the new name to store. */
 function update_sensor_display_name(_nodeid, sensor_id, new_name){
   sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
-    nodeCollection.update( {'_id': _nodeid}, { $set: {'sensor_diaplay_name' : newName} });
+    sensorCollection.update( {'_id' : _nodeid + "-" + sensor_id}, { $set: {'sensor_display_name' : new_name} });
   });
 }
 

@@ -191,7 +191,7 @@ mqtt_client.on('message', function (topic, message) {
       }
       break;
            
-      /** SENSOR STUFF */
+      /** SENSOR/NODE STUFF */
       
     /** Update a sensor variable. 
      *  Expects an object: {'node_id': NUMBER, 'sensor_id' : NUMBER, 'msg_cmd': NUMBER, 'msg_type' : NUMBER, 'payload': NUMBER } */
@@ -201,7 +201,7 @@ mqtt_client.on('message', function (topic, message) {
       myspacket.ms_write_msg(msg);
       break; 
     
-    /** update display name. Expects a JSON object. 
+    /** update node display name. Expects a JSON object. 
      *  Expects an object: {'node_id' : NUMBER, 'displayName' : STRING} */
     case '/zc/' + serial_number + '/update_node_display_name/':
       var msg_json = JSON.parse(message.toString());
@@ -214,6 +214,13 @@ mqtt_client.on('message', function (topic, message) {
       var msg_json = JSON.parse(message.toString());
       dbutils.update_node_display_name(msg_json['node_id'], msg_json['node_dead_milis']);
       break;
+      
+    /** update sensor Display name. Expects a JSON object. 
+     *  Expects an object: {'node_id' : NUMBER, 'sensor_id' : NUMBER 'displayName' : STRING} */
+    case '/zc/' + serial_number + '/update_sensor_display_name/':
+      var msg_json = JSON.parse(message.toString());
+      dbutils.update_sensor_display_name(msg_json['node_id'], msg_json['sensor_id'], msg_json['displayName']);
+      break; 
       
     /** Publishes all the nodes */
     case '/zc/' + serial_number + '/get_nodes/':

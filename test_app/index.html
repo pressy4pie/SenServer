@@ -10,8 +10,10 @@
 
     //sample HTML/JS script that will publish/subscribe to topics in the Google Chrome Console
     //by Matthew Bordignon @bordignon on twitter.
-
+    
+    // This can probably be localhost when we put it up on the server.
     var wsbroker = "ekg.westus.cloudapp.azure.com";  //mqtt websocket enabled broker
+    
     var wsport = 3002 // port for above
     var serial_number = 'test_serial' 
     var node_list = new Object;
@@ -34,7 +36,7 @@
           if( raw_msg == 'done'){
             //console.log(JSON.stringify(node_list,null,8)); 
           } else{
-            console.log("new nodes published, fetching...");
+            //console.log("new nodes published, fetching...");
             var node = JSON.parse(raw_msg);
             node_list["node " + node._id] = node;
             document.getElementById("nodes_box").value = JSON.stringify(node_list,null,8);
@@ -52,7 +54,7 @@
             if( raw_msg == 'done'){
               //console.log(JSON.stringify(alarms_list,null,8));
             } else {
-              console.log("new alarms published, fetching...");
+              //console.log("new alarms published, fetching...");
 
               var alarm = JSON.parse(raw_msg);
               //add it to our list. 
@@ -67,7 +69,7 @@
              // console.log(JSON.stringify(timers_list,null,8)); 
             }
             else{        
-              console.log("new timers published, fetching...");
+              //console.log("new timers published, fetching...");
               // make a json of the json. 
               var timer = JSON.parse(raw_msg);
             
@@ -179,6 +181,17 @@
     }
   }
   
+  function update_node_one_sensor_one_name(){
+    var nameValue = document.getElementById('node_one_sensor_one_name').value;
+    if (nameValue != null){
+      var msg = {'node_id': 1, 'sensor_id' : 1, 'displayName': nameValue };
+      message = new Paho.MQTT.Message( JSON.stringify(msg) ) ;
+      message.destinationName = "/zc/test_serial/update_sensor_display_name/";
+      client.send(message);
+      get_nodes();
+    }
+  }
+  
   function create_alarm(){  
     var alarm_msg =  {
       name : 'test alarm',
@@ -215,7 +228,7 @@
 <link href="css/bootstrap.min.css" rel="stylesheet">
     <div id="nodes" class="col-sm-4">
       <h3>NODES</h3><button onclick=" get_nodes(); ">Force Get Nodes</button> <br>
-      <textarea rows="20" cols="50" id="nodes_box">
+      <textarea rows="20" cols="55" id="nodes_box">
       </textarea>
     </div>
     
@@ -242,11 +255,13 @@
       <button onclick=" up(); ">up on sensor 1</button>
       <button onclick=" down(); ">down on sensor 1</button>
       <button onclick=" stop(); ">stop on sensor 1</button><br>
-      <input type="text" id="nodeonename" value=""> <button onclick=" update_node_one_name(); ">update name on sensor 1</button> 
+      <input type="text" id="nodeonename" value=""> <button onclick=" update_node_one_name(); ">update name on node 1</button><br><br>
+      <input type="text" id="node_one_sensor_one_name" value=""> <button onclick=" update_node_one_sensor_one_name(); ">update name on node 1 sensor 1</button> 
+      <input type="text" id="node_one_sensor_one_name" value=""> <button onclick=" update_node_one_sensor_one_name(); ">update name on node 1 sensor 1</button> 
       <br><br>
       
       <button onclick=" toggle_include(); ">turn inclusion mode on.</button> <input type="text" id="include_box" value="off"> <br>
-      <button onclick=" get_all() ">Populate Info</button><br>
+      <button onclick=" get_all() ">Force get all info.</button><br>
       <br>
     </div>  
              
