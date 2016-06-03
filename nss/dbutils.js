@@ -35,7 +35,7 @@ function save_alarm( alarm_to_save ){
 function save_timestamp(_nodeid){
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).forEach(function (doc){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'last_seen' : Date.now() } });
-    if(doc['alive'] == false){
+    if(doc['alive'] != 'true' && doc['alive'] != true){
       logUtils.mslog('node ' + _nodeid + " is declared alive!!");
       nodeCollection.update( {'_id': _nodeid}, { $set: {'alive' : true } } );
     }
@@ -78,7 +78,7 @@ function update_sensor_display_name(_nodeid, sensor_id, new_name){
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
     if(results[0]['variables'] == null){ //if the variables object is empty.
-      results[0]['variables'] = {} // create the variables empty object
+      results[0]['variables'] = new Object; // create the variables empty object
       results[0]['variables'][parseInt(sensor_type)] = payload ; // variable type = value
       sensorCollection.update({'_id' : _nodeid + "-" + sensor_id},results[0]  );
     }

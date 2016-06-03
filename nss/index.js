@@ -201,12 +201,18 @@ mqtt_client.on('message', function (topic, message) {
       myspacket.ms_write_msg(msg);
       break; 
     
-    /** reboot a node. 
-     * Expects an object {'node_id' : NUMBER} */
+    /** Reboot a node. 
+     *  Expects an object: {'node_id' : NUMBER} */
     case '/zc/' + serial_number + '/reboot_node/':
       var msg_json = JSON.parse(message.toString());
       var msg = myspacket.ms_encode(msg_json['node_id'], NODE_SENSOR_ID, C_INTERNAL, NO_ACK, I_REBOOT, '' );
       myspacket.ms_write_msg(msg);      
+      break;
+      
+    /** Update the number of miliseconds until a node is declared dead.
+     *  Expects an object: {'node_id' : NUMBER, 'hb_freq' : NUMBER }  */
+    case '/zc/' + serial_number + '/update_node_hb_freq/':
+      
       break;
     
     /** update node display name. Expects a JSON object. 
