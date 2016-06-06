@@ -139,8 +139,8 @@ const   I_PRESENTATION=19;
 const   I_DISCOVER=20; 
 const   I_DISCOVER_RESPONSE=21; 
 const   I_HEARTBEAT_RESPONSE=22;
-const   I_CHANNEL=23;
-const   I_LOCKED=24;       
+const   I_LOCKED=23;  
+const   I_STATUS=24;     
 
 // STREAM MESSAGE TYPES
 const   ST_FIRMWARE_CONFIG_REQUEST=0;

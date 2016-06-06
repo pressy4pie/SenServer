@@ -178,6 +178,10 @@ function packet_recieved(_data){
           logUtils.mslog('presentation message: '+ _data);
           break;
           
+        case I_STATUS:
+          dbutils.save_status_message(nodeid,payload);
+          break;
+          
         // We don't use any of these. 
         case I_VERSION:
         break;

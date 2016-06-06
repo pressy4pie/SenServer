@@ -150,6 +150,13 @@ function save_node_name(_nodeid,node_name){
   });
 }
 
+function save_status_message(_nodeid,payload){
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'current_status' : payload} });
+    save_timestamp(_nodeid);
+  });  
+}
+
 /** Rename a node. Updates display_name 
  *  @param {number} _nodeid - the node whose name to update.
  *  @param {string} newName - the new display name for that node. 
@@ -201,5 +208,6 @@ module.exports = {
     save_node_battery_level : save_node_battery_level,
     save_node_name : save_node_name,
     update_node_display_name : update_node_display_name,
-    sendNextAvailableSensorId : sendNextAvailableSensorId
+    sendNextAvailableSensorId : sendNextAvailableSensorId,
+    save_status_message: save_status_message
 }
