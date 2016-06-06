@@ -94,7 +94,7 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   });
 }
 
-/** Save a node battery leve.
+/** Save a node battery version.
  *  @param {number} _nodeid - The node whose name to update.
  *  @param {string} version - The node version.
  *  We don't really use this to be honest. I guess we could use it for hardware revisions.  
@@ -106,7 +106,7 @@ function save_node_version(_nodeid,version){
   });
 }
 
-/** Save a node battery leve.
+/** Save a node library version.
  *  @param {number} _nodeid - The node whose name to update.
  *  @param {string} libversion - The library version. 
  */ 
@@ -117,13 +117,20 @@ function save_node_lib_version(_nodeid,libversion){
   });
 }
 
-/** Save a node battery leve.
+/** Save a node battery level.
  *  @param {number} _nodeid - The node whose name to update.
  *  @param {number} bat_level - Percentage of available battery life. 
  */ 
 function save_node_battery_level(_nodeid,bat_level){
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
-    nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_level' : parseInt(bat_level)} });
+    
+    if(bat_level == 0){
+      nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_level' : "none" } });
+      nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_powered' : false } });
+    } else {
+      nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_level' : parseInt(bat_level)} });
+      nodeCollection.update( {'_id': _nodeid}, { $set: {'bat_powered' : true} });
+    }
     save_timestamp(_nodeid);
   });
 }
@@ -153,6 +160,9 @@ function save_node_name(_nodeid,node_name){
 function save_status_message(_nodeid,payload){
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'current_status' : payload} });
+    if(payload == "erase sensor"){
+      nodeCollection.update( {'_id': _nodeid}, { $set: {'erased' : true} });
+    }
     save_timestamp(_nodeid);
   });  
 }
@@ -173,7 +183,8 @@ function sendNextAvailableSensorId() {
   //Start with 1 for good measure. 
   num_nodes = nodeCollection.find( {'last_seen' : {$gt: 0} } ).count();
   num_nodes.then(function(value){      
-    nid =  (parseInt(value) + 1 );     
+    var nid =  (parseInt(value) + 1 );  
+    var rightNow = Date.now();   
     //Build a blank node.
     var empty_node = { '_id' : nid,
                       'display_name':null,
@@ -182,9 +193,10 @@ function sendNextAvailableSensorId() {
                       'node_name' : null,
                       'node_version' : null,
                       'lib_version' : null,
-                      'last_seen' : Date.now(), 
+                      'last_seen' : rightNow, 
+                      'first_seen' : rightNow,                      
                       'alive' : 'true',
-                      //'sensors':{}
+                      'erased' : false
                     };
     nodeCollection.save(empty_node);
     
