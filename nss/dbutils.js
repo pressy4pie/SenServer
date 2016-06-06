@@ -190,6 +190,7 @@ function sendNextAvailableSensorId() {
                       'display_name':null,
                       'hb_freq' : 900000, //default to 15 minutes.
                       'bat_level' : null,
+                      'bat_powered' : null,
                       'node_name' : null,
                       'node_version' : null,
                       'lib_version' : null,
