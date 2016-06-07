@@ -44,6 +44,24 @@ var net_connection = function( ){
   });
 }
 
+//This should only happen if there is no internet. 
+var start_local_broker = function(){
+  global.mosca = require('mosca');
+  global.http = require('http');
+  var moscaSettings = {
+    port: 1883,
+    http: { // for teh websockets
+      port: 3002,
+      bundle: true,
+      static: ''
+    }
+  };
+  global.mqtt_broker = new mosca.Server(moscaSettings);
+  mqtt_broker.on('ready', function() {
+    logUtils.mqttlog("Local broker online");
+  });  
+}
+
 // Integrety check because I always to set env variables before starting. 
 if(environment == null ){ logUtils.log('MISSING ENVIRONMENT. BAILING!1!!1!!11'); process.exit(-1);  } else {
   logUtils.log('ENVIRONMENT: ' + environment); }
@@ -60,9 +78,9 @@ if( environment == 'prod'  ){
     global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
   }
   else {
-    // I would like nodejs to launch the mqtt broker right before connecting to it in this case.
+    cloud_mqtt_server
     global.dburl = 'mongodb://' + '10.0.0.134' +':27017/' + serial_number;
-    global.local_mqtt_server = "localhost:3003";
+    global.local_mqtt_server = "localhost:3002";
     global.mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
   }
   
@@ -76,9 +94,11 @@ else if ( environment == 'dev' ){
   // Something that should be got from our non existant configuration file. 
   global.node_dead_milis = 900000; //15 minutes
   global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
-  global.local_mqtt_server = "localhost:3003";
+  global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
+  global.local_mqtt_server = "localhost:3002";
   global.serial_port = '/dev/ttyACM0';
   global.dburl = 'mongodb://localhost:27017/'+serial_number;
+  start_local_broker(); // Just to make sure it works.
   global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
   // See above. 
   mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
