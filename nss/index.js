@@ -55,13 +55,13 @@ if( environment == 'prod'  ){
   
   // Check for internet, and if not start our own mqtt server. 
   if (net_connection){
-    global.dburl = 'mongodb://localhost:27017/'+serial_number;
+    global.dburl = 'mongodb://10.0.0.134:27017/'+serial_number;
     global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
     global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
   }
   else {
     // I would like nodejs to launch the mqtt broker right before connecting to it in this case.
-    global.dburl = 'mongodb://localhost:27017/'+serial_number;
+    global.dburl = 'mongodb://' + '10.0.0.134' +':27017/' + serial_number;
     global.local_mqtt_server = "localhost:3003";
     global.mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
   }
@@ -77,7 +77,7 @@ else if ( environment == 'dev' ){
   global.node_dead_milis = 900000; //15 minutes
   global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
   global.local_mqtt_server = "localhost:3003";
-  global.serial_port = '/dev/ttyACM1';
+  global.serial_port = '/dev/ttyACM0';
   global.dburl = 'mongodb://localhost:27017/'+serial_number;
   global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
   // See above. 
@@ -91,10 +91,14 @@ var includeInThisContext = function(path) {
 }.bind(this);
 includeInThisContext(__dirname+"/mymessage.js");
 
-// Initialize db connection.
+// Initialize db connection.]
 MongoClient.connect(dburl, function(err, db) {
-  if(err)
+  if(err){
+    logUtils.errlog("Could not connect to Database Server. Not running?");
+    
     throw err;
+  }
+
   logUtils.dblog("Connected to DB.");
   
   // The collections of documents we deal with. This could probably be more elegant. 
@@ -131,6 +135,7 @@ mqtt_client.on('connect', () => {
   // Subscribe to our serial number. 
   // Eventually we will need auth for this. 
   mqtt_client.subscribe('/zc/' + serial_number + "/#");
+  mqtt_client.subscribe('/updates/#');
   logUtils.mqttlog('subscribed to: ' + '/zc/' + serial_number);
   main_init.init_program();
 });
@@ -147,7 +152,7 @@ port.on('data', function (data) {
   }
   else{
     // Not a real mysensors message. Not sure how you got here.
-    logUtils.log('UNRECOGNIZED MESSAGE');
+    logUtils.log('UNRECOGNIZED MESSAGE: ' + data);
   }
 });
 
@@ -220,6 +225,7 @@ mqtt_client.on('message', function (topic, message) {
     case '/zc/' + serial_number + '/update_node_display_name/':
       var msg_json = JSON.parse(message.toString());
       dbutils.update_node_display_name(msg_json['node_id'], msg_json['diaplayName']);
+      mqttUtils.publish_nodes();
       break; 
       
     /** Update the number of miliseconds before a node is declared dead. 
@@ -270,6 +276,13 @@ mqtt_client.on('message', function (topic, message) {
      *  Message can be anythin. 'get' */
     case '/zc/' + serial_number + '/get_alarms/':
       mqttUtils.publish_alarms();
+      break;
+      
+    case '/updates/':
+      logUtils.mqttlog("UPDATE THING");
+      break;
+    case '/updates/senserver':
+      logUtils.mqttlog(message.toString());
       break;
       
     /*

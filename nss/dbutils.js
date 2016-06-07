@@ -5,12 +5,13 @@
 
 /** Check to see if nodes are alive. This will loop thru all of the nodes in the db.  */
 function check_node_alive(){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find().forEach(function (doc, err){
-    if(err){logUtils.errlog(err); throw err}
+    if(err){logUtils.errlog(err); throw err;}
     // Just for readability.
     var node_json = doc;
     /** hb_freq is a number in miliseconds, that defaults to 15 minutes. This will probably be user configurable. */
-    if( (Date.now() - node_json.last_seen) > node_json.hb_freq && node_json.alive == true){
+    if( (Date.now() - node_json.last_seen ) > node_json.hb_freq && (node_json.alive == true)){
       logUtils.mslog('node: '  + node_json._id + " is declared dead."); 
       last_seen = new Date(node_json.last_seen);
       logUtils.mslog('last seen: ' + last_seen);
@@ -33,9 +34,10 @@ function save_alarm( alarm_to_save ){
  *  @param {number} _nodeid - the node on which this sensor resides.  
  */
 function save_timestamp(_nodeid){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).forEach(function (doc){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'last_seen' : Date.now() } });
-    if(doc['alive'] != 'true' && doc['alive'] != true){
+    if(doc['alive'] != true){
       logUtils.mslog('node ' + _nodeid + " is declared alive!!");
       nodeCollection.update( {'_id': _nodeid}, { $set: {'alive' : true } } );
     }
@@ -44,9 +46,16 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
+  if (typeof nodeCollection == 'undefined'){return;}
   sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
     if(results.length < 1){ //If this sensor doesnt exist already.
       logUtils.dblog('Saving new sensor on node: ' + _nodeid);
+      /** check to make sure _nodeid is a real node. */
+  nodeCursor = nodeCollection.find( {'_id' : _nodeid } ).toArray(function (err, results){
+    if(results[0] == null){
+      return;
+    } 
+    else {
       newSensor = { '_id': _nodeid + "-" + sensor_id, 
               'node_id':_nodeid, 
               'sensor_id': sensor_id, 
@@ -55,7 +64,8 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
               'sensor_type': sensor_subtype,
              };
       sensorCollection.save(newSensor);
-    }
+      }
+  });}
   });
 }
 
@@ -65,6 +75,7 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
  *  @param {number} sensor_id - the id on _nodeid whose name to update.
  *  @param {string} new_name - the new name to store. */
 function update_sensor_display_name(_nodeid, sensor_id, new_name){
+  if (typeof sensorCollection == 'undefined'){return;}
   sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
     sensorCollection.update( {'_id' : _nodeid + "-" + sensor_id}, { $set: {'sensor_display_name' : new_name} });
   });
@@ -76,7 +87,11 @@ function update_sensor_display_name(_nodeid, sensor_id, new_name){
  *  @param {number} sensor_type - the variable type. See mymessage.js.
  *  @param {string} payload - the payload to update. */
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
+  if (typeof sensorCollection == 'undefined'){return;}
   sensorCursor = sensorCollection.find( {'_id' : _nodeid + "-" + sensor_id} ).toArray(function (err, results){
+    if(results[0] == null){
+      return;
+    }
     if(results[0]['variables'] == null){ //if the variables object is empty.
       results[0]['variables'] = new Object; // create the variables empty object
       results[0]['variables'][parseInt(sensor_type)] = payload ; // variable type = value
@@ -100,6 +115,7 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
  *  We don't really use this to be honest. I guess we could use it for hardware revisions.  
  */ 
 function save_node_version(_nodeid,version){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'node_version' : version} });
     save_timestamp(_nodeid);
@@ -111,6 +127,7 @@ function save_node_version(_nodeid,version){
  *  @param {string} libversion - The library version. 
  */ 
 function save_node_lib_version(_nodeid,libversion){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'lib_version' : libversion} });
     save_timestamp(_nodeid);
@@ -122,6 +139,7 @@ function save_node_lib_version(_nodeid,libversion){
  *  @param {number} bat_level - Percentage of available battery life. 
  */ 
 function save_node_battery_level(_nodeid,bat_level){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
     
     if(bat_level == 0){
@@ -137,19 +155,27 @@ function save_node_battery_level(_nodeid,bat_level){
 
 /** Save a node name. Called on node init (presentation)
  *  @param {number} _nodeid - the node whose name to update.
- *  @param {string} node_name - The name of the node. 
+ *  @param {string} _node_name - The name of the node. 
  */ 
-function save_node_name(_nodeid,node_name){
+function save_node_name(_nodeid,_node_name){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
-    nodeCollection.update( {'_id': _nodeid}, { $set: {'node_name' : node_name} });
+    nodeCollection.update( {'_id': _nodeid}, { $set: {'node_name' : _node_name} });
     logUtils.dblog('Saveing node name');
+    if(results[0] == null){return;}
     if(results[0]['display_name'] == null){ // if it doesn't have a display name.
-      list_this_sensor_type = nodeCollection.find( {node_name : results[0]['node_name']} ).count();
-      list_this_sensor_type.then(function(results){ // Is this how promises work?
-          if(results > 0 ){
-            nodeCollection.update( {'_id': _nodeid}, { $set: {'display_name' : node_name + '-' + results.toString()} }); // not the first of its type.
+      logUtils.dblog('no display name');
+      list_this_sensor_type = nodeCollection.find( { 'node_name' : _node_name } ).toArray();
+
+      list_this_sensor_type.then(function(results){
+        //console.log(results);
+        var number_of_sensors = results.length;
+          if(parseInt(number_of_sensors) > 0 ){
+            console.log(_node_name + "-" + (number_of_sensors).toString() );
+            nodeCollection.update( {'_id': _nodeid}, { $set: {'display_name' : _node_name + "-" + (number_of_sensors).toString()  } });
           } else{
-            nodeCollection.update( {'_id': _nodeid}, { $set: {'display_name' : node_name + '-' + '1' } }); // default name if its the first sensor of its type.
+            console.log('number 1');
+            nodeCollection.update( {'_id': _nodeid}, { $set: {'display_name' : _node_name + '-' + '1' } }); // default name if its the first sensor of its type.
           }
       });
     }
@@ -158,6 +184,7 @@ function save_node_name(_nodeid,node_name){
 }
 
 function save_status_message(_nodeid,payload){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'current_status' : payload} });
     if(payload == "erase sensor"){
@@ -173,6 +200,7 @@ function save_status_message(_nodeid,payload){
  *  We can't just use node_name because it gets updated on node reboot, (presentation.)
 */
 function update_node_display_name(_nodeid,newName){
+  if (typeof nodeCollection == 'undefined'){return;}
   nodeCursor = nodeCollection.find( {'_id' : _nodeid} ).toArray(function (err, results){
     nodeCollection.update( {'_id': _nodeid}, { $set: {'display_name' : newName} });
   });
@@ -180,6 +208,7 @@ function update_node_display_name(_nodeid,newName){
 
 // Give a new node an ID. 
 function sendNextAvailableSensorId() {
+  if (typeof nodeCollection == 'undefined'){return;}
   //Start with 1 for good measure. 
   num_nodes = nodeCollection.find( {'last_seen' : {$gt: 0} } ).count();
   num_nodes.then(function(value){      
@@ -196,7 +225,7 @@ function sendNextAvailableSensorId() {
                       'lib_version' : null,
                       'last_seen' : rightNow, 
                       'first_seen' : rightNow,                      
-                      'alive' : 'true',
+                      'alive' : true,
                       'erased' : false
                     };
     nodeCollection.save(empty_node);
