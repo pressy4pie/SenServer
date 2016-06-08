@@ -11,25 +11,9 @@ function publish_all(){
 // publish our nodes. 
 function publish_nodes(){
   logUtils.mqttlog('Publishing nodes.');
-  // Get cursor for nodes with id greater than zero. 
-  var nodeCursor = nodeCollection.find( { _id: {$gt: 0}} ); // All the nodes with an id greater than 0
-  nodeCursor.each(function (err, doc) {
-    var node_to_publish = new Object;
-    if (err) {
-      logUtils.err(err);
-    } else if ( doc != null ) { // If the document is not null.
-      node_to_publish = doc;
-      sensorCursor = sensorCollection.find( {'node_id': node_to_publish['_id'] } ).toArray(function (err, results){
-        node_to_publish['sensors'] = results;
-        if(node_to_publish['sensors'] != null){ // I don't know why this is here, but i refuse to remove it.
-          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
-        }
-      });
-    } 
-    else { // after going thru all the nodes, we get a null one. So use it to publish the done signal. 
-      mqtt_client.publish("/zc/" + serial_number + "/node/", 'done' );
-    }
-  });
+  /** TODO */
+  mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
+  mqtt_client.publish("/zc/" + serial_number + "/node/", 'done' );
 } 
 
 // publish our alarms.

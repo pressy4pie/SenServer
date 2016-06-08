@@ -12,17 +12,15 @@ global.serial_number = process.env.SERIALNUM;
 var mqtt = require('mqtt');
 var serialport = require('serialport');
 var SerialPort = serialport.SerialPort;
-var MongoClient = require('mongodb').MongoClient;
+var vm = require('vm');
+var fs = require('fs');
+
 
 global.logUtils = require(__dirname+'/logutils.js');
 global.dbutils = require(__dirname+'/dbutils.js');
 global.myspacket = require(__dirname+'/mysensors_packet.js');
 global.main_init = require(__dirname+'/init.js');
 global.mqttUtils = require(__dirname+'/mqttutils.js');
-
-// This is because I didn't want the contents of mymessage.js in this file. 
-var vm = require('vm');
-var fs = require('fs');
 
 // Set inclusion mode to false in the start so we don't get undefined errors.
 global.inclusion_mode = false;
@@ -68,18 +66,15 @@ if(environment == null ){ logUtils.log('MISSING ENVIRONMENT. BAILING!1!!1!!11');
 
 // Production environment. 
 if( environment == 'prod'  ){
-  // Something that should be got from our non existant configuration file. 
-  global.node_dead_milis = 900000; //15 minutes
-  
   // Check for internet, and if not start our own mqtt server. 
   if (net_connection){
-    global.dburl = 'mongodb://10.0.0.134:27017/'+serial_number;
+    global.dburl = 'localhost';
     global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
     global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
   }
   else {
     cloud_mqtt_server
-    global.dburl = 'mongodb://' + '10.0.0.134' +':27017/' + serial_number;
+    global.dburl = 'localhost';
     global.local_mqtt_server = "localhost:3002";
     global.mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
   }
@@ -91,16 +86,12 @@ if( environment == 'prod'  ){
 }
 // Development environment.
 else if ( environment == 'dev' ){
-  // Something that should be got from our non existant configuration file. 
-  global.node_dead_milis = 900000; //15 minutes
-  global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
   global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
   global.local_mqtt_server = "localhost:3002";
   global.serial_port = '/dev/ttyACM0';
-  global.dburl = 'mongodb://localhost:27017/'+serial_number;
+  global.dburl = 'localhost';
   start_local_broker(); // Just to make sure it works.
   global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
-  // See above. 
   mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
 }
 
@@ -110,33 +101,6 @@ var includeInThisContext = function(path) {
     vm.runInThisContext(code, path);
 }.bind(this);
 includeInThisContext(__dirname+"/mymessage.js");
-
-// Initialize db connection.]
-MongoClient.connect(dburl, function(err, db) {
-  if(err){
-    logUtils.errlog("Could not connect to Database Server. Not running?");
-    
-    throw err;
-  }
-
-  logUtils.dblog("Connected to DB.");
-  
-  // The collections of documents we deal with. This could probably be more elegant. 
-  db.createCollection('nodes', function(err, collection)   { if(err){ logUtils.err(err); } });
-  db.createCollection('sensors', function(err, collection) { if(err){ logUtils.err(err); } });
-  db.createCollection('alarms', function(err, collection)  { if(err){ logUtils.err(err); } });
-  db.createCollection('timers', function(err, collection)  { if(err){ logUtils.err(err); } });
-  db.createCollection('config', function(err, collection)  { if(err){ logUtils.err(err); } });
-  
-  // These are our two collections for mysensors messages. Partially working. 
-  nodeCollection = db.collection('nodes');
-  sensorCollection = db.collection('sensors');
-  
-  // This stuff doesn't work yet. 
-  alarmCollection = db.collection('alarms');
-  timerCollection = db.collection('timers');
-  configCollection = db.collection('config');
-});
 
 // Initialize the serial port. 
 global.port = new SerialPort(serial_port, {
