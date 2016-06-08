@@ -6,14 +6,14 @@
 /** Check to see if nodes are alive. This will loop thru all of the nodes in the db.  */
 function check_node_alive(){
   db.nodes.find({ _id: {$gt : 0} }, function (err, docs) {
-    for (node in docs){
+    docs.forEach(function(item,node){
       var thisNode = docs[parseInt(node)];
       /** if the node hasn't been seen in a longer amount of time than the hb_freq declare it dead.  */
       if( (Date.now() - thisNode['last_seen']) >= thisNode['hb_freq'] && ( thisNode['alive'] == true )){
         logUtils.dblog("node " + thisNode['_id'] + " Is declared dead!");
         db.nodes.update({ _id:thisNode['_id'] }, {$set : {alive: false} });
       } 
-    }
+    });
   }); 
 }
 
@@ -30,9 +30,9 @@ function save_alarm( alarm_to_save ){
 /** Save a timestamp and make it apear alive.
  *  @param {number} _nodeid - the node on which this sensor resides.  */
 function save_timestamp(_nodeid){
-  db.nodes.find({ _id: _nodeid }, function (err, docs) {
+  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
     if(docs == null){return;}
-    thisNode = docs[0]; 
+    thisNode = docs; 
     db.nodes.update({_id : _nodeid}, { $set : {"last_seen" : Date.now() } });
     if(thisNode['alive'] != true){ 
       logUtils.dblog("node " + _nodeid + " Is declared alive!");
@@ -43,9 +43,9 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  db.sensors.find({ _id: _nodeid + "-" + sensor_id }, function (err, docs) {
+  db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, doc) {
     /** if this document doesn't exist yet.  */
-    if(docs[0] == null){
+    if(doc == null){
       newSensor = { '_id': _nodeid + "-" + sensor_id, 
         'node_id':_nodeid, 
         'sensor_id': sensor_id, 
@@ -54,8 +54,8 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
         'sensor_type': sensor_subtype,
       };
       /** This is to make sure we aren't saving a sensor on a node that does not exist.  */
-      db.nodes.find({'_id' : _nodeid},function(err,node_docs){
-        if(node_docs[0] != null){ 
+      db.nodes.findOne({'_id' : _nodeid},function(err,node_docs){
+        if(node_docs != null){ 
           db.sensors.insert(newSensor);
         }
       });
@@ -69,7 +69,7 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
  *  @param {number} sensor_id - the id on _nodeid whose name to update.
  *  @param {string} new_name - the new name to store. */
 function update_sensor_display_name(_nodeid, sensor_id, new_name){
-  db.nodes.find({ _id: _nodeid }, function (err, node_docs) {
+  db.nodes.findOne({ _id: _nodeid }, function (err, node_docs) {
     db.sensors.find({ _id: _nodeid + "-" + sensor_id }, function (err, docs) {
       db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, {$set: {sensor_display_name: new_name}}  );
       mqttUtils.publish_nodes(_nodeid);
@@ -81,7 +81,7 @@ function update_sensor_display_name(_nodeid, sensor_id, new_name){
  * @param {number} _nodeid - the Id of the node to update.
  * @param {number} new_hb_freq - the new heartbeat frequency. */ 
 function update_hb_frequency(_nodeid, new_hb_freq){
-  db.nodes.find({ _id: _nodeid }, function (err, doc) {
+  db.nodes.findOne({ _id: _nodeid }, function (err, doc) {
     db.nodes.update( {_id : _nodeid}, { $set: { hb_freq : new_hb_freq } } );
     mqttUtils.publish_nodes(_nodeid);
   });  
@@ -93,8 +93,9 @@ function update_hb_frequency(_nodeid, new_hb_freq){
  *  @param {number} sensor_type - the variable type. See mymessage.js.
  *  @param {string} payload - the payload to update. */
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
-  db.sensors.find({ _id: _nodeid + "-" + sensor_id }, function (err, docs) {
-    var thisSensor = docs[0];
+  save_timestamp(_nodeid);
+  db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, docs) {
+    var thisSensor = docs; 
     /** Make sure this sensor exists. */
     if(thisSensor != null){
       /** If no variables exist. */
@@ -117,7 +118,6 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
           mqttUtils.publish_nodes(_nodeid);
         });
       }
-        save_timestamp(_nodeid);
     }
   });
 }
@@ -127,8 +127,8 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
  *  @param {string} version - The node version.
  *  We don't really use this to be honest. I guess we could use it for hardware revisions.  */  
 function save_node_version(_nodeid,node_version){
-  db.nodes.find({ _id: _nodeid }, function (err, docs) {
-    thisNode = docs[0]; 
+  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
+    var thisNode = docs; 
     db.nodes.update({_id : _nodeid}, { $set : {"node_version" : node_version } });
   });
 }
@@ -137,8 +137,8 @@ function save_node_version(_nodeid,node_version){
  *  @param {number} _nodeid - The node whose name to update.
  *  @param {string} libversion - The library version. */ 
 function save_node_lib_version(_nodeid,libversion){
-  db.nodes.find({ _id: _nodeid }, function (err, docs) {
-    thisNode = docs[0]; 
+  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
+    var thisNode = docs; 
     db.nodes.update({_id : _nodeid}, { $set : {"lib_version" : libversion } });
   });
 }
@@ -147,8 +147,8 @@ function save_node_lib_version(_nodeid,libversion){
  *  @param {number} _nodeid - The node whose name to update.
  *  @param {number} bat_level - Percentage of available battery life. */ 
 function save_node_battery_level(_nodeid,bat_level){
-  db.nodes.find({ _id: _nodeid }, function (err, docs) {
-    thisNode = docs[0]; 
+  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
+    var thisNode = docs; 
     if(bat_level == 0){
       /** this is not a battery powered sensor. */
       db.nodes.update({_id : _nodeid}, { $set : {"bat_powered" : false } });
@@ -157,17 +157,15 @@ function save_node_battery_level(_nodeid,bat_level){
       db.nodes.update({_id : _nodeid}, { $set : {"bat_level" : bat_level } });
       mqttUtils.publish_nodes(_nodeid);
   });
-  save_timestamp(_nodeid);
 }
 
 /** Save a node name. Called on node init (presentation)
  *  @param {number} _nodeid - the node whose name to update.
  *  @param {string} _node_name - The name of the node.  */ 
 function save_node_name(_nodeid,_node_name){
-  db.nodes.find({ _id: _nodeid }, function (err, docs) {
-    thisNode = docs[0]
+  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
+    var thisNode = docs;
     if(thisNode != null){
-      save_timestamp(_nodeid);
       /** if we don't have a node name yet. */
       if(thisNode['node_name'] == null){
         db.nodes.update({_id : _nodeid}, { $set : {"node_name" : _node_name } });
@@ -190,7 +188,7 @@ function save_node_name(_nodeid,_node_name){
  * @param {number} _nodeid - the id of the node to update.
  * @param {string} payload - the status of the node. */
 function save_status_message(_nodeid,payload){
-  db.nodes.find({ _id: _nodeid }, function (err, docs) {
+  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
     db.nodes.update({_id : _nodeid}, { $set : {"status" : payload } });
     save_timestamp(_nodeid);  
     mqttUtils.publish_nodes(_nodeid);
@@ -202,7 +200,7 @@ function save_status_message(_nodeid,payload){
  *  @param {string} newName - the new display name for that node. 
  *  We can't just use node_name because it gets updated on node reboot, (presentation.) */
 function update_node_display_name(_nodeid,newName){
-  db.nodes.find({ _id: _nodeid }, function (err, docs) {
+  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
     db.nodes.update({_id : _nodeid}, { $set : {"display_name" : newName } });
   });
 }
