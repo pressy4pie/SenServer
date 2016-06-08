@@ -14,7 +14,26 @@ var serialport = require('serialport');
 var SerialPort = serialport.SerialPort;
 var vm = require('vm');
 var fs = require('fs');
-
+var path = require('path');
+var Datastore = require('nedb');
+/*
+global.db = {
+  nodes : new Datastore({filename :  path.join(serial_number,"nodes.db"),
+  autoload: true}),
+  sensors : new Datastore({filename : path.join(serial_number,"sensors.db"),
+  autoload: true}),
+  alarms : new Datastore({filename : path.join(serial_number,"alarms.db"),
+  autoload: true}),
+  timers : new Datastore({filename : path.join(serial_number,"timers.db"),
+  autoload: true}),
+};
+*/
+global.db = {
+  nodes : new Datastore(),
+  sensors : new Datastore(),
+  alarms : new Datastore(),
+  timers : new Datastore()
+};
 
 global.logUtils = require(__dirname+'/logutils.js');
 global.dbutils = require(__dirname+'/dbutils.js');
@@ -68,31 +87,26 @@ if(environment == null ){ logUtils.log('MISSING ENVIRONMENT. BAILING!1!!1!!11');
 if( environment == 'prod'  ){
   // Check for internet, and if not start our own mqtt server. 
   if (net_connection){
-    global.dburl = 'localhost';
     global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
     global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
   }
   else {
-    cloud_mqtt_server
-    global.dburl = 'localhost';
     global.local_mqtt_server = "localhost:3002";
     global.mqtt_client = mqtt.connect("ws:" + local_mqtt_server, {});
   }
   
   // Serial port. 
   global.serial_port = '/dev/ttyUSB0';
-  // This shouldn't be here, but i'll move it l8r bro.
-  mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
 }
 // Development environment.
 else if ( environment == 'dev' ){
+  // MQTT STUFF.
   global.cloud_mqtt_server = "ekg.westus.cloudapp.azure.com:3002";
   global.local_mqtt_server = "localhost:3002";
-  global.serial_port = '/dev/ttyACM0';
-  global.dburl = 'localhost';
-  start_local_broker(); // Just to make sure it works.
   global.mqtt_client = mqtt.connect("ws:" + cloud_mqtt_server, {});
-  mqtt_client.publish('/zc/' + serial_number + "/current_inclusion_mode/", 'off');
+  
+  // USB PORT.
+  global.serial_port = '/dev/ttyACM0';
 }
 
 // Get the mymessage variables because i dont wan't it in this file. its a huge list. 
