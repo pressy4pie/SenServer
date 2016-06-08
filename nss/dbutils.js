@@ -31,6 +31,7 @@ function save_alarm( alarm_to_save ){
  *  @param {number} _nodeid - the node on which this sensor resides.  */
 function save_timestamp(_nodeid){
   db.nodes.find({ _id: _nodeid }, function (err, docs) {
+    if(docs == null){return;}
     thisNode = docs[0]; 
     db.nodes.update({_id : _nodeid}, { $set : {"last_seen" : Date.now() } });
     if(thisNode['alive'] != true){ 
@@ -54,7 +55,9 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
       };
       /** This is to make sure we aren't saving a sensor on a node that does not exist.  */
       db.nodes.find({'_id' : _nodeid},function(err,node_docs){
-        if(node_docs[0] != null){ db.sensors.insert(newSensor);}
+        if(node_docs[0] != null){ 
+          db.sensors.insert(newSensor);
+        }
       });
     }
   });
@@ -115,7 +118,6 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
         });
       }
         save_timestamp(_nodeid);
-        db.sensors.persistence.compactDatafile();
     }
   });
 }

@@ -16,7 +16,8 @@ var vm = require('vm');
 var fs = require('fs');
 var path = require('path');
 var Datastore = require('nedb');
-/*
+
+/** db.nodes and db.sensors could be stored in ram, and backed up occasionally i suppose. */
 global.db = {
   nodes : new Datastore({filename :  path.join(serial_number,"nodes.db"),
   autoload: true}),
@@ -25,14 +26,7 @@ global.db = {
   alarms : new Datastore({filename : path.join(serial_number,"alarms.db"),
   autoload: true}),
   timers : new Datastore({filename : path.join(serial_number,"timers.db"),
-  autoload: true}),
-};
-*/
-global.db = {
-  nodes : new Datastore(),
-  sensors : new Datastore(),
-  alarms : new Datastore(),
-  timers : new Datastore()
+  autoload: true}) 
 };
 
 global.logUtils = require(__dirname+'/logutils.js');
