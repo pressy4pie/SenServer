@@ -176,12 +176,12 @@ port.on('data', function (data) {
   }
 });
 
-mqtt_client.on('message', function (topic, message) {
+mqtt_client.on('message', function (topic, message,_info) {
   switch (topic){
     /** When an app connects it should publish something to here. 
      *  That something can be anything. a message that says 'connect' is easy to find in logs. */
     case '/zc/' + serial_number + "/":
-      logUtils.mqttlog('new connection');
+      logUtils.mqttlog('new connection' );
       mqttUtils.publish_all();
       mqtt_client.publish('/zc/' + serial_number + "/get_current_inclusion_mode/",'get');
       break;
