@@ -31,7 +31,9 @@ function save_alarm( alarm_to_save ){
  *  @param {number} _nodeid - the node on which this sensor resides.  */
 function save_timestamp(_nodeid){
   db.nodes.update({_id : _nodeid}, { $set : {"last_seen" : Date.now() } });
-  db.nodes.update({_id : _nodeid}, { $set : {"alive" : true } });
+  if(global.nodes[_nodeid - 1]['alive'] != true){
+    db.nodes.update({_id : _nodeid}, { $set : {"alive" : true } });
+  }
 }
 
 // Save the sensor in the DB
@@ -91,6 +93,7 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   });
   
   db.sensors.findOne({"_id" : _nodeid + "-" + sensor_id },function(err,sensor) {
+    console.log('saving variable on sensor');
     if(sensor["variables"] == null){ sensor["variables"] = new Object;}
     sensor["variables"][sensor_type] = payload;
     db.sensors.update({"_id" : _nodeid + "-" + sensor_id },sensor);
