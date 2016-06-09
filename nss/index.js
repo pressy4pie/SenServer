@@ -40,7 +40,7 @@ db.nodes.find({},function(err, results){
       sensor_results.forEach(function(sensor,sensor_index){
         if(global.nodes[index]["sensors"] == null){global.nodes[index]["sensors"] = []}
         global.nodes[index]["sensors"].push(sensor);
-        console.log( global.nodes[index] );
+        //console.log( global.nodes[index] );
       });
     });
   })

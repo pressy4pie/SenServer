@@ -94,6 +94,14 @@ function update_hb_frequency(_nodeid, new_hb_freq){
  *  @param {string} payload - the payload to update. */
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   save_timestamp(_nodeid);
+  
+  console.log(global.nodes[_nodeid -1]);
+          global.nodes[_nodeid -1]["sensors"].forEach(function(sensor,index){
+            if(sensor["variables"] == null){ sensor["variables"] = new Object;}
+            sensor["variables"][sensor_type] = payload;
+            mqttUtils.publish_nodes(_nodeid);
+          })
+  
   db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, docs) {
     var thisSensor = docs; 
     /** Make sure this sensor exists. */
@@ -102,21 +110,15 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
       if(thisSensor['variables'] == null){ //if the variables object is empty.
         thisSensor['variables'] = new Object; // create the variables empty object
         thisSensor['variables'][parseInt(sensor_type)] = payload ; // variable type = value
-        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){
-          mqttUtils.publish_nodes(_nodeid);
-        });
+        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){});
       }
       else if( thisSensor['variables'][parseInt(sensor_type)] == null ){ // if variables object exists, but doesnt have that variable yet.
         thisSensor['variables'][parseInt(sensor_type)] = payload ; // variable type = value
-        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){
-          mqttUtils.publish_nodes(_nodeid);
-        });
+        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){});
       }
       else if( thisSensor['variables'][parseInt(sensor_type)] ){
         thisSensor['variables'][parseInt(sensor_type)] = payload ; // variable type = value
-        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){
-          mqttUtils.publish_nodes(_nodeid);
-        });
+        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){});
       }
     }
   });
