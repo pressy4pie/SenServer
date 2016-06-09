@@ -16,7 +16,7 @@ function publish_nodes(specific_node){
       mqtt_client.publish("/zc/" + serial_number + "/node/",JSON.stringify(node));
     }); 
   }else{
-    console.log(  JSON.stringify(global.nodes[specific_node -1],null,4) );
+    //console.log(  JSON.stringify(global.nodes[specific_node -1],null,4) );
     mqtt_client.publish("/zc/" + serial_number + "/node/",JSON.stringify(global.nodes[specific_node - 1]));
   }
 } 

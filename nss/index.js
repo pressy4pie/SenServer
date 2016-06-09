@@ -26,6 +26,7 @@ global.db = {
   autoload: true}),
   sensors : new Datastore({filename : path.join(serial_number,"sensors.db"),
   autoload: true}),
+  
   alarms : new Datastore({filename : path.join(serial_number,"alarms.db"),
   autoload: true}),
   timers : new Datastore({filename : path.join(serial_number,"timers.db"),
@@ -40,7 +41,6 @@ db.nodes.find({},function(err, results){
       sensor_results.forEach(function(sensor,sensor_index){
         if(global.nodes[index]["sensors"] == null){global.nodes[index]["sensors"] = []}
         global.nodes[index]["sensors"].push(sensor);
-        //console.log( global.nodes[index] );
       });
     });
   })

@@ -30,22 +30,15 @@ function save_alarm( alarm_to_save ){
 /** Save a timestamp and make it apear alive.
  *  @param {number} _nodeid - the node on which this sensor resides.  */
 function save_timestamp(_nodeid){
-  db.nodes.findOne({ _id: _nodeid }, function (err, docs) {
-    if(docs == null){return;}
-    thisNode = docs; 
-    db.nodes.update({_id : _nodeid}, { $set : {"last_seen" : Date.now() } });
-    if(thisNode['alive'] != true){ 
-      logUtils.dblog("node " + _nodeid + " Is declared alive!");
-      db.nodes.update({_id : _nodeid}, { $set : {"alive" : true } }); }
-    db.nodes.persistence.compactDatafile();
-  });  
+  db.nodes.update({_id : _nodeid}, { $set : {"last_seen" : Date.now() } });
+  db.nodes.update({_id : _nodeid}, { $set : {"alive" : true } });
 }
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, doc) {
+  db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, sensor) {
     /** if this document doesn't exist yet.  */
-    if(doc == null){
+    if(sensor == null){
       newSensor = { '_id': _nodeid + "-" + sensor_id, 
         'node_id':_nodeid, 
         'sensor_id': sensor_id, 
@@ -53,12 +46,7 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
         'sensor_display_name' : sensor_name, 
         'sensor_type': sensor_subtype,
       };
-      /** This is to make sure we aren't saving a sensor on a node that does not exist.  */
-      db.nodes.findOne({'_id' : _nodeid},function(err,node_docs){
-        if(node_docs != null){ 
-          db.sensors.insert(newSensor);
-        }
-      });
+      db.sensors.insert(newSensor);
     }
   });
 }
@@ -95,33 +83,19 @@ function update_hb_frequency(_nodeid, new_hb_freq){
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   save_timestamp(_nodeid);
   
-  console.log(global.nodes[_nodeid -1]);
-          global.nodes[_nodeid -1]["sensors"].forEach(function(sensor,index){
-            if(sensor["variables"] == null){ sensor["variables"] = new Object;}
-            sensor["variables"][sensor_type] = payload;
-            mqttUtils.publish_nodes(_nodeid);
-          })
-  
-  db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, docs) {
-    var thisSensor = docs; 
-    /** Make sure this sensor exists. */
-    if(thisSensor != null){
-      /** If no variables exist. */
-      if(thisSensor['variables'] == null){ //if the variables object is empty.
-        thisSensor['variables'] = new Object; // create the variables empty object
-        thisSensor['variables'][parseInt(sensor_type)] = payload ; // variable type = value
-        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){});
-      }
-      else if( thisSensor['variables'][parseInt(sensor_type)] == null ){ // if variables object exists, but doesnt have that variable yet.
-        thisSensor['variables'][parseInt(sensor_type)] = payload ; // variable type = value
-        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){});
-      }
-      else if( thisSensor['variables'][parseInt(sensor_type)] ){
-        thisSensor['variables'][parseInt(sensor_type)] = payload ; // variable type = value
-        db.sensors.update({'_id' : _nodeid + "-" + sensor_id}, thisSensor,{},function(){});
-      }
-    }
+  /** Save the sensor value in the local storage and send it before doing any db stuffs. */
+  global.nodes[_nodeid -1]["sensors"].forEach(function(sensor,index){
+    if(sensor["variables"] == null){ sensor["variables"] = new Object;}
+    sensor["variables"][sensor_type] = payload;
+    mqttUtils.publish_nodes(_nodeid);
   });
+  
+  db.sensors.findOne({"_id" : _nodeid + "-" + sensor_id },function(err,sensor) {
+    if(sensor["variables"] == null){ sensor["variables"] = new Object;}
+    sensor["variables"][sensor_type] = payload;
+    db.sensors.update({"_id" : _nodeid + "-" + sensor_id },sensor);
+  });
+  
 }
 
 /** Save a node battery version.
