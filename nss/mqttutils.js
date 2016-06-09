@@ -12,33 +12,12 @@ function publish_all(){
 function publish_nodes(specific_node){
   /** If we aren't publishing a specific_node, do all of them. */
   if(specific_node == null){
-    // Get cursor for nodes with id greater than zero. 
-    db.nodes.find( {} ,function(err, nodes){
-      if (err) {logUtils.err(err);} 
-      if ( nodes != null ) {
-        nodes.forEach(function(list_item,node){
-          var node_to_publish = nodes[node]; 
-          db.sensors.find({'node_id': node_to_publish['_id'] },function(err, sensors){
-            node_to_publish['sensors'] = sensors;
-            mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
-          });
-        });
-      }  
+    global.nodes.forEach(function(node,node_index){
+      mqtt_client.publish("/zc/" + serial_number + "/node/",JSON.stringify(node));
     }); 
   }else{
-    // Get cursor for nodes with id greater than zero. 
-    db.nodes.find( {_id:specific_node} ,function(err, nodes){
-      if (err) {logUtils.err(err);} 
-      if ( nodes != null ) {
-        nodes.forEach(function(list_item,node){
-          var node_to_publish = nodes[node]; 
-          db.sensors.find({'node_id': node_to_publish['_id'] },function(err, sensors){
-            node_to_publish['sensors'] = sensors;
-            mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
-          });
-        });
-      }  
-    });     
+    console.log(  JSON.stringify(global.nodes[specific_node -1],null,4) );
+    mqtt_client.publish("/zc/" + serial_number + "/node/",JSON.stringify(global.nodes[specific_node - 1]));
   }
 } 
 

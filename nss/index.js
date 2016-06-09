@@ -17,32 +17,33 @@ var fs = require('fs');
 var path = require('path');
 var Datastore = require('nedb');
 
+global.nodes = [];
+global.sensors = [];
+
 /** db.nodes and db.sensors could be stored in ram, and backed up occasionally i suppose. */
 global.db = {
-  nodes : new Datastore(),
-  sensors : new Datastore(),
+  nodes : new Datastore({filename :  path.join(serial_number,"nodes.db"),
+  autoload: true}),
+  sensors : new Datastore({filename : path.join(serial_number,"sensors.db"),
+  autoload: true}),
   alarms : new Datastore({filename : path.join(serial_number,"alarms.db"),
   autoload: true}),
   timers : new Datastore({filename : path.join(serial_number,"timers.db"),
   autoload: true}) 
 };
-global.backupdb = {
-    nodes : new Datastore({filename :  path.join(serial_number,"nodes.db"),
-  autoload: true}),
-  sensors : new Datastore({filename : path.join(serial_number,"sensors.db"),
-   autoload: true})
-};
 
-backupdb.nodes.find({},function(err,nodes){
-  nodes.forEach(function(item,node){
-    db.nodes.insert(node);
-  });
-});
-
-backupdb.sensors.find({},function(err,sensors){
-  sensors.forEach(function(item,sensor){
-    db.sensors.insert(sensor);
-  });
+/** just trying this for speed. */
+db.nodes.find({},function(err, results){
+  results.forEach(function(node,index){
+    global.nodes[index] = node;
+    db.sensors.find({"node_id" : global.nodes[index]["_id"]},function(err,sensor_results){
+      sensor_results.forEach(function(sensor,sensor_index){
+        if(global.nodes[index]["sensors"] == null){global.nodes[index]["sensors"] = []}
+        global.nodes[index]["sensors"].push(sensor);
+        console.log( global.nodes[index] );
+      });
+    });
+  })
 });
 
 global.logUtils = require(__dirname+'/logutils.js');
