@@ -93,9 +93,11 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   });
   
   db.sensors.findOne({"_id" : _nodeid + "-" + sensor_id },function(err,sensor) {
-    console.log('saving variable on sensor');
+    console.log('saving variable on sensor: ' + sensor);
     if(sensor["variables"] == null){ sensor["variables"] = new Object;}
     sensor["variables"][sensor_type] = payload;
+    
+    console.log('saving variable on sensor: ' + sensor);
     db.sensors.update({"_id" : _nodeid + "-" + sensor_id },sensor);
   });
   
