@@ -17,9 +17,6 @@ var fs = require('fs');
 var path = require('path');
 var Datastore = require('nedb');
 
-global.nodes = [];
-global.sensors = [];
-
 /** db.nodes and db.sensors could be stored in ram, and backed up occasionally i suppose. */
 global.db = {
   nodes : new Datastore({filename :  path.join(serial_number,"nodes.db"),
@@ -33,18 +30,23 @@ global.db = {
   autoload: true}) 
 };
 
-/** just trying this for speed. */
-db.nodes.find({},function(err, results){
-  results.forEach(function(node,index){
-    global.nodes[index] = node;
-    db.sensors.find({"node_id" : global.nodes[index]["_id"]},function(err,sensor_results){
-      sensor_results.forEach(function(sensor,sensor_index){
-        if(global.nodes[index]["sensors"] == null){global.nodes[index]["sensors"] = []}
-        global.nodes[index]["sensors"].push(sensor);
+global.update_local_storage = function(){
+  global.nodes = [];
+  global.sensors = [];
+  /** just trying this for speed. */
+  db.nodes.find({},function(err, results){
+    results.forEach(function(node,index){
+      global.nodes[index] = node;
+      db.sensors.find({"node_id" : global.nodes[index]["_id"]},function(err,sensor_results){
+        sensor_results.forEach(function(sensor,sensor_index){
+          if(global.nodes[index]["sensors"] == null){global.nodes[index]["sensors"] = []}
+          global.nodes[index]["sensors"].push(sensor);
+        });
       });
-    });
-  })
-});
+    })
+  });  
+}
+update_local_storage();
 
 global.logUtils = require(__dirname+'/logutils.js');
 global.dbutils = require(__dirname+'/dbutils.js');

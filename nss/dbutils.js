@@ -31,23 +31,27 @@ function save_alarm( alarm_to_save ){
  *  @param {number} _nodeid - the node on which this sensor resides.  */
 function save_timestamp(_nodeid){
   db.nodes.update({_id : _nodeid}, { $set : {"last_seen" : Date.now() } });
-  if(global.nodes[_nodeid - 1]['alive'] != true){
-    db.nodes.update({_id : _nodeid}, { $set : {"alive" : true } });
-  }
 }
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, sensor) {
-    /** if this document doesn't exist yet.  */
-    if(sensor == null){
-      newSensor = { '_id': _nodeid + "-" + sensor_id, 
+  newSensor = { '_id': _nodeid + "-" + sensor_id, 
         'node_id':_nodeid, 
         'sensor_id': sensor_id, 
         'sensor_name': sensor_name, 
         'sensor_display_name' : sensor_name, 
         'sensor_type': sensor_subtype,
       };
+  if( global.nodes[_nodeid - 1]['sensors'] == null  ){ 
+    global.nodes[_nodeid - 1]['sensors'] = [];
+    global.nodes[_nodeid - 1]['sensors'].push(newSensor);
+   }
+   
+  global.update_local_storage();
+  
+  db.sensors.findOne({ _id: _nodeid + "-" + sensor_id }, function (err, sensor) {
+    /** if this document doesn't exist yet.  */
+    if(sensor == null){
       db.sensors.insert(newSensor);
     }
   });
@@ -86,7 +90,7 @@ function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   save_timestamp(_nodeid);
   
   /** Save the sensor value in the local storage and send it before doing any db stuffs. */
-  global.nodes[_nodeid -1]["sensors"].forEach(function(sensor,index){
+  global.nodes[_nodeid - 1]["sensors"].forEach(function(sensor,index){
     if(sensor["variables"] == null){ sensor["variables"] = new Object;}
     sensor["variables"][sensor_type] = payload;
     mqttUtils.publish_nodes(_nodeid);
@@ -207,6 +211,8 @@ function sendNextAvailableSensorId() {
                      };
     /** Save the node. */
     db.nodes.insert(empty_node);
+    global.update_local_storage();
+    console.log(JSON.stringify(global.nodes,null,4));
     // send the id to the node itself. 
     var msg = myspacket.ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
     myspacket.ms_write_msg(msg);                 
