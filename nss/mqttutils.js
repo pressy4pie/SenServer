@@ -4,25 +4,30 @@ function publish_all(){
   publish_nodes();
   publish_alarms();
   publish_timers();
-  /** I'll probably remove this l8r. */
-  mqtt_client.publish("/zc/" + serial_number + "/all/", 'all_done' );
 }
 
 // publish our nodes. 
 function publish_nodes(node_number){
   if(node_number == null){
+    if(isNaN(node_number) && node_number != null){return;}
     logUtils.mqttlog('Publishing all nodes.');
     nodeCollection.find({_id : {$gt : 0}}).toArray(function(err, results){
       if(results == null){return;}
       results.forEach(function(node, index){
         if(node == null){return;}
-        mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node) );
+        sensorCollection.find({node_id : node['_id'] }).toArray(function(err, results){
+          node['sensors'] = results;
+          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node) );
+        });
       });
     });    
   }else {
     logUtils.mqttlog('Publishing node: ' + node_number);
     nodeCollection.findOne({_id : node_number },function(err, item) {
-      mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(item) );
+      sensorCollection.find({node_id : node_number }).toArray(function(err, results){
+        item['sensors'] = results;
+        mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(item) );
+      });
     });    
   }
 

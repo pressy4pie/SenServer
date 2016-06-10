@@ -208,7 +208,7 @@ mqtt_client.on('message', function (topic, message,_info) {
     /** Update the number of miliseconds until a node is declared dead.
      *  Expects an object: {'node_id' : NUMBER, 'hb_freq' : NUMBER }  */
     case '/zc/' + serial_number + '/update_node_hb_freq/':
-      
+      /** TODO */
       break;
     
     /** update node display name. Expects a JSON object. 
@@ -235,7 +235,14 @@ mqtt_client.on('message', function (topic, message,_info) {
       
     /** Publishes all the nodes */
     case '/zc/' + serial_number + '/get_nodes/':
-      mqttUtils.publish_nodes();
+      if(message.toString() == 'get' || message.toString() == null){
+        console.log('request for all nodes');
+        mqttUtils.publish_nodes();
+      }
+      else{
+        mqttUtils.publish_nodes(parseInt(message.toString()));
+      }
+      
       break;
       
       /** TIMER STUFF */

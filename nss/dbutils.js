@@ -35,7 +35,18 @@ function save_timestamp(_nodeid){
 
 // Save the sensor in the DB
 function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
-  /** TODO */
+  sensorCollection.findOne({_id : _nodeid + "-" + sensor_id },function(err, item) {
+    if(item == null){
+      newSensor = { '_id': _nodeid + "-" + sensor_id, 
+        'node_id':_nodeid, 
+        'sensor_id': sensor_id, 
+        'sensor_name': sensor_name, 
+        'sensor_display_name' : sensor_name, 
+        'sensor_type': sensor_subtype,
+      };
+      sensorCollection.save(newSensor); 
+    }
+  });
 }
 
 /** Rename a sensor name for user readability.
@@ -55,9 +66,27 @@ function update_sensor_display_name(_nodeid, sensor_id, new_name){
  *  @param {number} sensor_type - the variable type. See mymessage.js.
  *  @param {string} payload - the payload to update. */
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
-  /** TODO */
-  save_timestamp(_nodeid);
-  mqttUtils.publish_nodes(_nodeid);
+  sensorCollection.findOne( {_id : _nodeid + "-" + sensor_id },function(err, item) {
+    if(err){console.log(err);}
+    if(item == null){ return; }
+    
+    // No variables yet. 
+    if(item['variables'] == null){
+     item['variables'] = new Object;
+     item['variables'][parseInt(sensor_type)] = payload;
+    }
+    // Some variables exist, but not this one. 
+    else if( item['variables'][sensor_type] == null ){
+      item['variables'][parseInt(sensor_type)] = payload;
+    }
+    // This variable exists, update it. 
+    else{
+      item['variables'][parseInt(sensor_type)] = payload;
+    }
+    sensorCollection.update({_id : _nodeid + "-" + sensor_id }, item);
+    save_timestamp(_nodeid);
+    mqttUtils.publish_nodes(_nodeid);
+  });  
 }
 
 /** Save a node version.
@@ -108,7 +137,9 @@ function save_node_name(_nodeid,_node_name){
 }
 
 function save_status_message(_nodeid,status){
-
+  nodeCollection.findOne({_id : _nodeid },function(err, item) {
+    nodeCollection.update({_id : _nodeid}, {$set : {status : status}});
+  });
 }
 
 /** Rename a node. Updates display_name 
@@ -117,7 +148,9 @@ function save_status_message(_nodeid,status){
  *  We can't just use node_name because it gets updated on node reboot, (presentation.)
 */
 function update_node_display_name(_nodeid,newName){
-
+  nodeCollection.findOne({_id : _nodeid },function(err, item) {
+    nodeCollection.update({_id : _nodeid}, {$set : {'display_name' : newName}});
+  });
 }
 
 // Give a new node an ID. 

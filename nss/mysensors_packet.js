@@ -155,8 +155,6 @@ function packet_recieved(_data){
         case I_SKETCH_VERSION:
           if (nodeid == "0") break;
           dbutils.save_node_lib_version(nodeid,payload);
-          // This is the last thing a node presents, so it's safe to publish nodes here.
-          mqttUtils.publish_nodes();
           break;
           
         // The gateway is ready. 
