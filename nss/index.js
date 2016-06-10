@@ -14,7 +14,14 @@ var serialport = require('serialport');
 var SerialPort = serialport.SerialPort;
 var vm = require('vm');
 var fs = require('fs');
+var Engine = require('tingodb')();
+global.db = new Engine.Db(__dirname, {});
+    
+db.createCollection('nodes', function(err, collection)   { if(err){ logUtils.err(err); } });
+db.createCollection('sensors', function(err, collection) { if(err){ logUtils.err(err); } });
 
+nodeCollection = db.collection('nodes');
+sensorCollection = db.collection('sensors');
 
 global.logUtils = require(__dirname+'/logutils.js');
 global.dbutils = require(__dirname+'/dbutils.js');

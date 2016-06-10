@@ -9,11 +9,23 @@ function publish_all(){
 }
 
 // publish our nodes. 
-function publish_nodes(){
-  logUtils.mqttlog('Publishing nodes.');
-  /** TODO */
-  mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node_to_publish) );
-  mqtt_client.publish("/zc/" + serial_number + "/node/", 'done' );
+function publish_nodes(node_number){
+  if(node_number == null){
+    logUtils.mqttlog('Publishing all nodes.');
+    nodeCollection.find({_id : {$gt : 0}}).toArray(function(err, results){
+      if(results == null){return;}
+      results.forEach(function(node, index){
+        if(node == null){return;}
+        mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(node) );
+      });
+    });    
+  }else {
+    logUtils.mqttlog('Publishing node: ' + node_number);
+    nodeCollection.findOne({_id : node_number },function(err, item) {
+      mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(item) );
+    });    
+  }
+
 } 
 
 // publish our alarms.

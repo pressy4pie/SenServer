@@ -5,7 +5,13 @@
 
 /** Check to see if nodes are alive. This will loop thru all of the nodes in the db.  */
 function check_node_alive(){
-  /** TODO */
+  nodeCollection.find({_id : {$gt : 0}}).toArray(function(err, results){
+    results.forEach(function(node, index){
+      if((Date.now() - node['last_seen']) > node['hb_freq']){
+        nodeCollection.update({_id : _nodeid}, {$set : {alive : false}});
+      }
+    });
+  });
 }
 
 // Save a timer in the DB.
@@ -22,7 +28,9 @@ function save_alarm( alarm_to_save ){
  *  @param {number} _nodeid - the node on which this sensor resides.  
  */
 function save_timestamp(_nodeid){
-  /** TODO */
+  nodeCollection.findOne({_id : _nodeid },function(err, item) {
+    nodeCollection.update({_id : _nodeid}, {$set : {last_seen : Date.now()}});
+  });
 }
 
 // Save the sensor in the DB
@@ -38,7 +46,7 @@ function save_sensor(_nodeid, sensor_id, sensor_name, sensor_subtype){
 function update_sensor_display_name(_nodeid, sensor_id, new_name){
   /** TODO */
   save_timestamp(_nodeid);
-  mqttUtils.publish_nodes();
+  mqttUtils.publish_nodes(_nodeid);
 }
 
 /** Save the sensor to the database
@@ -49,26 +57,28 @@ function update_sensor_display_name(_nodeid, sensor_id, new_name){
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   /** TODO */
   save_timestamp(_nodeid);
-  mqttUtils.publish_nodes();
+  mqttUtils.publish_nodes(_nodeid);
 }
 
-/** Save a node battery version.
+/** Save a node version.
  *  @param {number} _nodeid - The node whose name to update.
  *  @param {string} version - The node version.
  *  We don't really use this to be honest. I guess we could use it for hardware revisions.  
  */ 
-function save_node_version(_nodeid,version){
-  /** TODO */
-  save_timestamp(_nodeid);
+function save_node_version(_nodeid,node_version){
+  nodeCollection.findOne({_id : _nodeid },function(err, item) {
+    nodeCollection.update({_id : _nodeid}, {$set : {node_version : node_version}});
+  });
 }
 
 /** Save a node library version.
  *  @param {number} _nodeid - The node whose name to update.
- *  @param {string} libversion - The library version. 
+ *  @param {string} lib_version - The library version. 
  */ 
-function save_node_lib_version(_nodeid,libversion){
-  /** TODO */
-  save_timestamp(_nodeid);
+function save_node_lib_version(_nodeid,lib_version){
+  nodeCollection.findOne({_id : _nodeid },function(err, item) {
+    nodeCollection.update({_id : _nodeid}, {$set : {lib_version : lib_version}});
+  });
 }
 
 /** Save a node battery level.
@@ -76,22 +86,29 @@ function save_node_lib_version(_nodeid,libversion){
  *  @param {number} bat_level - Percentage of available battery life. 
  */ 
 function save_node_battery_level(_nodeid,bat_level){
-  /** TODO */
-  save_timestamp(_nodeid);
+  nodeCollection.findOne({_id : _nodeid },function(err, item) {
+    nodeCollection.update({_id : _nodeid}, {$set : {bat_level : bat_level}});
+    if(item['bat_powered'] != true && bat_level == 0){
+      nodeCollection.update({_id : _nodeid}, {$set : {bat_powered : false}});
+    }
+  });
 }
 
 /** Save a node name. Called on node init (presentation)
  *  @param {number} _nodeid - the node whose name to update.
  *  @param {string} _node_name - The name of the node. 
  */ 
-function save_node_name(_nodeid,_node_name){
-  /** TODO */
-  save_timestamp(_nodeid);
+function save_node_name(_nodeid,_node_name){  
+  nodeCollection.findOne({_id : _nodeid },function(err, item) {
+    nodeCollection.update({_id : _nodeid}, {$set : {node_name : _node_name}});
+    if(item['display_name'] == null){
+      nodeCollection.update({_id : _nodeid}, {$set : {display_name : _node_name}});
+    }
+  });
 }
 
-function save_status_message(_nodeid,payload){
-  /** TODO */
-  save_timestamp(_nodeid); 
+function save_status_message(_nodeid,status){
+
 }
 
 /** Rename a node. Updates display_name 
@@ -100,17 +117,38 @@ function save_status_message(_nodeid,payload){
  *  We can't just use node_name because it gets updated on node reboot, (presentation.)
 */
 function update_node_display_name(_nodeid,newName){
-  /** TODO */
+
 }
 
 // Give a new node an ID. 
 function sendNextAvailableSensorId() {
-  /** TODO */
-    var nid = NUMBER_OF_NODES + 1
-    // send the id to the node itself. 
-    var msg = myspacket.ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
-    myspacket.ms_write_msg(msg);
-    save_timestamp(nid);
+  if (typeof nodeCollection == 'undefined'){return;}
+  nodeCollection.find({_id : {$gt : 0}}).toArray(function(err, results){
+    if(err){ console.log(err);}
+    nid = results.length + 1;
+    console.log(results);
+   
+  var rightNow = Date.now();   
+  //Build a blank node.
+  var empty_node = { '_id' : nid,
+    'display_name':null,
+    'hb_freq' : 900000, //default to 15 minutes.
+    'bat_level' : null,
+    'bat_powered' : null,
+    'node_name' : null,
+    'node_version' : null,
+    'lib_version' : null,
+    'last_seen' : rightNow, 
+    'first_seen' : rightNow,                      
+    'alive' : true,
+    'erased' : false
+  };
+  nodeCollection.save(empty_node);
+
+  // send the id to the node itself. 
+  var msg = myspacket.ms_encode(BROADCAST_ADDRESS, NODE_SENSOR_ID, C_INTERNAL, "0", I_ID_RESPONSE, nid);
+  myspacket.ms_write_msg(msg);
+  }); 
 }
 
 module.exports = {

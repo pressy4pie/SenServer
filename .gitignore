@@ -1,3 +1,7 @@
 *VC*
 nss/node_modules
 nss/_test_db
+nss/nodes
+nss/sensors
+nss/alarms
+nss/timers
