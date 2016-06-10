@@ -15,38 +15,16 @@ var SerialPort = serialport.SerialPort;
 var vm = require('vm');
 var fs = require('fs');
 var path = require('path');
-var Datastore = require('nedb');
+var sqlite = require('sqlite3').verbose();
+global.db = new sqlite.Database(serial_number+'.db');
 
-/** db.nodes and db.sensors could be stored in ram, and backed up occasionally i suppose. */
-global.db = {
-  nodes : new Datastore({filename :  path.join(serial_number,"nodes.db"),
-  autoload: true}),
-  sensors : new Datastore({filename : path.join(serial_number,"sensors.db"),
-  autoload: true}),
-  
-  alarms : new Datastore({filename : path.join(serial_number,"alarms.db"),
-  autoload: true}),
-  timers : new Datastore({filename : path.join(serial_number,"timers.db"),
-  autoload: true}) 
-};
-
-global.update_local_storage = function(){
-  global.nodes = [];
-  global.sensors = [];
-  /** just trying this for speed. */
-  db.nodes.find({},function(err, results){
-    results.forEach(function(node,index){
-      global.nodes[index] = node;
-      db.sensors.find({"node_id" : global.nodes[index]["_id"]},function(err,sensor_results){
-        sensor_results.forEach(function(sensor,sensor_index){
-          if(global.nodes[index]["sensors"] == null){global.nodes[index]["sensors"] = []}
-          global.nodes[index]["sensors"].push(sensor);
-        });
-      });
-    })
-  });  
-}
-update_local_storage();
+db.serialize(function(){
+  /** create our tables if they don't exist. */
+  db.run("CREATE TABLE IF NOT EXISTS nodes (_id INTEGER, display_name TEXT, hb_freq INTEGER, bat_level INTEGER, bat_powered BOOLEAN, node_name TEXT, node_version TEXT, lib_version TEXT, last_seen REAL,first_seen REAL, alive BOOLEAN, status TEXT, erased BOOLEAN  ) ");
+  db.run("CREATE TABLE IF NOT EXISTS sensors (_id TEXT, node_id INTEGER, sensor_id INTEGER, sensor_name TEXT, sensor_display_name TEXT, sensor_type TEXT) ");
+  db.run("CREATE TABLE IF NOT EXISTS alarms (thing TEXT) ");
+  db.run("CREATE TABLE IF NOT EXISTS timers (thing TEXT) ");
+});
 
 global.logUtils = require(__dirname+'/logutils.js');
 global.dbutils = require(__dirname+'/dbutils.js');

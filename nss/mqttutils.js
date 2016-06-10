@@ -12,12 +12,38 @@ function publish_all(){
 function publish_nodes(specific_node){
   /** If we aren't publishing a specific_node, do all of them. */
   if(specific_node == null){
-    global.nodes.forEach(function(node,node_index){
-      mqtt_client.publish("/zc/" + serial_number + "/node/",JSON.stringify(node));
-    }); 
+    db.serialize(function(){
+    db.each("SELECT * FROM nodes ",{},function(err,results){
+      if(err){console.log(err);}
+      if(results == null){return;}
+      db.each("SELECT * FROM sensors WHERE node_id = $node_id",{
+        $node_id : results['_id']
+      },function(err, sensor_results){
+        if(err){console.log('sensor ' + err);}
+        if(sensor_results == null){return;} 
+        if(results['sensors'] == null){ results['sensors'] = [];}
+        results['sensors'].push(sensor_results);
+        mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(results) );
+      });  
+    });
+  }); 
+/** getting a specific_node from teh db. I don't know if this is any faster. */
   }else{
-    //console.log(  JSON.stringify(global.nodes[specific_node -1],null,4) );
-    mqtt_client.publish("/zc/" + serial_number + "/node/",JSON.stringify(global.nodes[specific_node - 1]));
+    db.serialize(function(){
+      db.get("SELECT * FROM nodes WHERE _id = $_id ", {$_id : specific_node}, function(err, results){
+        if(err){ console.log("error: " + err); }
+        if( results == null) { return;}
+        db.each("SELECT * FROM sensors WHERE node_id = $node_id",{
+          $node_id : specific_node
+        },function(err, sensor_results){
+          if(err){console.log('sensor ' + err);}
+          if(sensor_results == null){return;} 
+          if(results['sensors'] == null){ results['sensors'] = [];}
+          results['sensors'].push(sensor_results);
+          mqtt_client.publish("/zc/" + serial_number + "/node/", JSON.stringify(results) );
+        });       
+      });
+    });
   }
 } 
 

@@ -2,3 +2,4 @@
 nss/node_modules
 nss/_test_db
 nss/test_serial/
+test_serial.db
