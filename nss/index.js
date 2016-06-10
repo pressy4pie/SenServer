@@ -21,7 +21,7 @@ global.db = new sqlite.Database(serial_number+'.db');
 db.serialize(function(){
   /** create our tables if they don't exist. */
   db.run("CREATE TABLE IF NOT EXISTS nodes (_id INTEGER, display_name TEXT, hb_freq INTEGER, bat_level INTEGER, bat_powered BOOLEAN, node_name TEXT, node_version TEXT, lib_version TEXT, last_seen REAL,first_seen REAL, alive BOOLEAN, status TEXT, erased BOOLEAN  ) ");
-  db.run("CREATE TABLE IF NOT EXISTS sensors (_id TEXT, node_id INTEGER, sensor_id INTEGER, sensor_name TEXT, sensor_display_name TEXT, sensor_type TEXT) ");
+  db.run("CREATE TABLE IF NOT EXISTS sensors (_id TEXT, variables TEXT, node_id INTEGER, sensor_id INTEGER, sensor_name TEXT, sensor_display_name TEXT, sensor_type TEXT) ");
   db.run("CREATE TABLE IF NOT EXISTS alarms (thing TEXT) ");
   db.run("CREATE TABLE IF NOT EXISTS timers (thing TEXT) ");
 });

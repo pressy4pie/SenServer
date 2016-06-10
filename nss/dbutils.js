@@ -87,7 +87,24 @@ function update_hb_frequency(_nodeid, new_hb_freq){
  *  @param {string} payload - the payload to update. */
 function save_sensor_value(_nodeid, sensor_id, sensor_type, payload){
   save_timestamp(_nodeid);
-  var node_sensor_variable_id = _nodeid + "-" + sensor_id + "-" + sensor_type;
+  nsid = _nodeid +"-"+ sensor_id;
+  var this_value = JSON.stringify({[sensor_type]: payload});
+  db.serialize(function(){
+    db.get("SELECT variables FROM sensors WHERE _id = $_id",{
+      $_id : _nodeid +"-"+ sensor_id 
+    },function(err, variables) {
+      if(err){console.log(err);}
+      if(variables == null){ return;}
+      if(variables['variables'] == null){
+        db.run("UPDATE sensors SET variables = $var_value WHERE _id = $_id",{
+          $var_value : "[" +  this_value + "]",
+          $_id : nsid
+        });
+      } else {
+        
+      }
+    });
+  });
   mqttUtils.publish_nodes(_nodeid);
 }
 
